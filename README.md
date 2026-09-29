@@ -1,6 +1,5 @@
-# 2BSIT-1-Case-Study-Project
+#IT's over
 
-One of us is femboy
 Alcantara, Steven Ace F.
 
 Gala, Dan Jewel N.
