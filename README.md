@@ -1,4 +1,6 @@
-# IT's over
+# 2BSIT-1 Project Case Study
+
+IT's over
 
 Alcantara, Steven Ace F.
 
