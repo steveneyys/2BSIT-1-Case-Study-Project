@@ -9,10 +9,5 @@
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Refactoring / Code style / Documentation (no functional changes)
 
-## How Has This Been Tested?
-<!-- Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. -->
-- [ ] **Unit Tests:** `npm run test` (or equivalent test command)
-- [ ] **Manual Verification:** Tested locally on Google Chrome / Firefox.
-
 ## Screenshots
 <!-- If applicable, add screenshots to help demonstrate the change. -->
