@@ -1,6 +1,6 @@
-<!-- Provide a clear, concise summary of the changes introduced by this PR and the reasoning behind them. -->
+Provide a clear, concise summary of the changes introduced by this PR and the reasoning behind them.
 
-<!-- Add Task ID (e.g. S1-SM-01) -->
+Add Task ID (e.g. S1-SM-01)
 
 ## Type of Change
 <!-- What type of change does your code introduce? Put an `x` in the box that applies: -->
