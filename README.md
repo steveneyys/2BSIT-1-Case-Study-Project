@@ -12,32 +12,6 @@ Node.js + Express + PostgreSQL (Supabase). No Docker.
 ## Scripts
 - `npm start` run the server, `npm run dev` run with auto-reload, `npm test` run tests
 
-Besa, Matthew Ben Anthony S.
-
-## Database Setup
-
-You need: Node.js 18+ and Git. No Docker.
-
-### First-time setup
-1. Clone the repo and open the folder in a terminal.
-2. Run `npm install`.
-3. Copy `.env.example` to `.env` (Mac/Linux: `cp .env.example .env`, Windows: `copy .env.example .env`).
-4. Open `.env` and paste the team's `DATABASE_URL` (ask the DB Admin, use the Session pooler string, never share it in public chat).
-5. Run `npm run db:ping`. You should see `Connected to postgres ...`.
-6. Run `npm run migrate`. You should see `Database is up to date.` (or each migration applied).
-
-### Daily use
-- Pulled new code? Run `npm run migrate` again. It only applies new files.
-- Never edit a migration that is already merged. Add a new numbered file instead.
-- Never commit `.env`.
-
-### If something fails
-| Message | Fix |
-|---|---|
-| `DATABASE_URL is missing` | You skipped step 3 or 4 |
-| `ENOTFOUND` or timeout | Check the URL and your internet. Use the Session pooler string, not the direct one |
-| `password authentication failed` | Wrong password in `.env` |
-| `FAILED 00X_...` | Nothing was half-applied. Send the full message to the DB Admin |
 ## Layout
 - `src/config.js` env loading and validation (fails fast)
 - `src/db.js` PostgreSQL pool wrapper (`db.query(sql, params)`)
@@ -54,8 +28,5 @@ Never commit `.env`. Always use parameterized queries (`$1, $2`), never string-b
 - `POST /api/auth/logout`, `GET /api/auth/me` (requires sign-in)
 - `POST /api/auth/set-password` `{token,password,confirmPassword}` one-time link; `node scripts/create-set-password-link.js <email>` prints a link for a seeded user
 - Protect routes with `requireAuth` / `requireRole('admin','superadmin')` from `src/middleware/auth.js`
-<<<<<<< HEAD
 - `POST /api/auth/forgot-password` `{email}` -> always 200 with the same message; emails a 1-hour single-use link to `/reset-password.html?token=...`. The link is submitted to `/api/auth/set-password`. Without `SMTP_HOST` the email is printed in the server console.
 - User Management (admin/superadmin only; plain users get 403): `GET /api/users?q=`, `POST /api/users`, `PATCH /api/users/:id`, `POST /api/users/:id/block|unblock`. Admins see users and admins but never superadmins, and manage users only. UI: `/users.html`.
-=======
->>>>>>> c4d261e80acd270344f8c9e5f0f95bc2b41616da

@@ -2,7 +2,7 @@
 
 const userRepo = require('../repositories/userRepo');
 const { hashPassword, verifyPassword } = require('./password');
-const { hashToken } = require('./passwordToken');
+const { hashToken, newRawToken, RESET_TTL_MS } = require('./passwordToken');
 const { validatePassword } = require('../validators/password');
 
 const GENERIC_LOGIN_ERROR = 'Invalid email or password.';
@@ -51,8 +51,39 @@ async function setPassword(db, { token, password, confirmPassword }) {
   return { status: 200, body: { message: 'Password saved. You can now sign in.' } };
 }
 
+const FORGOT_MESSAGE = 'If that email belongs to an account, a reset link has been sent. It is valid for 1 hour.';
+
+// Always answers the same way whether or not the email exists, so it cannot be used to find accounts.
+// Blocked, pending and unknown accounts silently get no email.
+async function requestPasswordReset(db, { email }, { mailer, appUrl }) {
+  const cleanEmail = String(email ?? '').trim().toLowerCase();
+  if (!cleanEmail) return { status: 400, body: { error: 'Email is required.' } };
+
+  const user = await userRepo.findByEmail(db, cleanEmail);
+  if (user && user.status === 'active' && !user.is_blocked) {
+    const raw = newRawToken();
+    await userRepo.invalidateUserTokens(db, user.user_id);
+    await userRepo.createPasswordToken(db, {
+      userId: user.user_id,
+      tokenHash: hashToken(raw),
+      expiresAt: new Date(Date.now() + RESET_TTL_MS),
+    });
+    // Not awaited: response time must not reveal whether an email was sent.
+    mailer
+      .send({
+        to: user.email,
+        subject: 'Reset your Hope ERP password',
+        text:
+          `Hello ${user.first_name},\n\nUse this link to choose a new password (valid for 1 hour, one use):\n` +
+          `${appUrl}/reset-password.html?token=${raw}\n\nIf you did not ask for this, ignore this email.`,
+      })
+      .catch((err) => console.error('[mail] failed to send reset email:', err.message));
+  }
+  return { status: 200, body: { message: FORGOT_MESSAGE } };
+}
+
 function publicUser(u) {
   return { id: u.user_id, firstName: u.first_name, lastName: u.last_name, email: u.email, role: u.role, status: u.status };
 }
 
-module.exports = { login, setPassword, publicUser };
+module.exports = { login, setPassword, requestPasswordReset, publicUser };
