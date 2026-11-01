@@ -14,6 +14,10 @@ test('fails fast when DATABASE_URL is missing outside test', () => {
   assert.throws(() => loadConfig({ NODE_ENV: 'development' }), /DATABASE_URL/);
 });
 
+test('SESSION_SECRET is required outside test', () => {
+  assert.throws(() => loadConfig({ NODE_ENV: 'development', DATABASE_URL: 'postgresql://x' }), /SESSION_SECRET/);
+});
+
 test('production requires a real SESSION_SECRET', () => {
   assert.throws(
     () => loadConfig({ NODE_ENV: 'production', DATABASE_URL: 'postgresql://x', SESSION_SECRET: 'change-me' }),

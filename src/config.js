@@ -24,9 +24,8 @@ function loadConfig(env = process.env) {
   // Fail fast with a clear message instead of a confusing error later.
   const missing = [];
   if (nodeEnv !== 'test' && !config.databaseUrl) missing.push('DATABASE_URL');
-  if (config.isProduction && (!config.sessionSecret || config.sessionSecret === 'change-me')) {
-    missing.push('SESSION_SECRET');
-  }
+  if (nodeEnv !== 'test' && !config.sessionSecret) missing.push('SESSION_SECRET');
+  if (config.isProduction && config.sessionSecret === 'change-me') missing.push('SESSION_SECRET');
   if (missing.length) {
     throw new Error(
       `Missing required environment variable(s): ${missing.join(', ')}. Copy .env.example to .env and fill them in.`
