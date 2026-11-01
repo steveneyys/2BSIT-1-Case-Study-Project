@@ -28,3 +28,4 @@ Never commit `.env`. Always use parameterized queries (`$1, $2`), never string-b
 - `POST /api/auth/logout`, `GET /api/auth/me` (requires sign-in)
 - `POST /api/auth/set-password` `{token,password,confirmPassword}` one-time link; `node scripts/create-set-password-link.js <email>` prints a link for a seeded user
 - Protect routes with `requireAuth` / `requireRole('admin','superadmin')` from `src/middleware/auth.js`
+- `POST /api/auth/forgot-password` `{email}` -> always 200 with the same message; emails a 1-hour single-use link to `/reset-password.html?token=...`. The link is submitted to `/api/auth/set-password`. Without `SMTP_HOST` the email is printed in the server console.
