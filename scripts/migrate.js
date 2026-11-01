@@ -1,11 +1,13 @@
-// Runs every un-applied file in /migrations, in filename order.
+// Runs every un-applied file in db/migrations, in filename order.
+// Only files named like 001_name.sql are applied (DRAFT_* files are ignored).
 // Each file runs inside one transaction: it fully applies or not at all.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { makeClient } = require('./lib/db');
 
-const DIR = path.join(__dirname, '..', 'migrations');
+const DIR = path.join(__dirname, '..', 'db', 'migrations');
+const NAME = /^\d{3}_.+\.sql$/;
 const sha = (text) => crypto.createHash('sha256').update(text).digest('hex');
 
 async function main() {
@@ -22,7 +24,7 @@ async function main() {
       .map((r) => [r.filename, r.checksum])
   );
 
-  const files = fs.readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort();
+  const files = fs.readdirSync(DIR).filter((f) => NAME.test(f)).sort();
   let ran = 0;
   for (const file of files) {
     const sql = fs.readFileSync(path.join(DIR, file), 'utf8');
