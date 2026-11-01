@@ -24,3 +24,7 @@ Never commit `.env`. Always use parameterized queries (`$1, $2`), never string-b
 
 ## API
 - `POST /api/auth/register` body `{firstName,lastName,email,password,confirmPassword}` -> 201 (account created as `user`, status `pending`), 400 (field errors), 409 (email taken), 429 (rate limited)
+- `POST /api/auth/login` `{email,password}` -> 200 + session cookie; 401 generic error; 403 blocked/pending (only after a correct password)
+- `POST /api/auth/logout`, `GET /api/auth/me` (requires sign-in)
+- `POST /api/auth/set-password` `{token,password,confirmPassword}` one-time link; `node scripts/create-set-password-link.js <email>` prints a link for a seeded user
+- Protect routes with `requireAuth` / `requireRole('admin','superadmin')` from `src/middleware/auth.js`

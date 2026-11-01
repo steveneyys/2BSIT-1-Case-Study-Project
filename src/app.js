@@ -5,6 +5,7 @@ const express = require('express');
 const helmet = require('helmet');
 const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
+const { attachUser } = require('./middleware/auth');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 // App factory: takes config and db so tests can inject fakes.
@@ -18,8 +19,9 @@ function createApp({ config, db }) {
   app.use(express.urlencoded({ extended: false }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
+  app.use('/api', attachUser(db, config)); // sets req.user when a valid session cookie is present
   app.use('/api/health', healthRoutes(db));
-  app.use('/api/auth', authRoutes(db));
+  app.use('/api/auth', authRoutes(db, config));
   // Later PRs mount here: /api/auth (DEV-02..04), /api/users (DEV-05..06), /api/rights (DEV-07)
 
   app.use(notFound);

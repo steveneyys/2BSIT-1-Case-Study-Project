@@ -24,6 +24,21 @@ function createDb(config) {
   return {
     pool,
     query: (text, params) => pool.query(text, params),
+    // Run fn(client) inside one transaction; rolls back if fn throws.
+    tx: async (fn) => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await fn(client);
+        await client.query('COMMIT');
+        return result;
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+    },
     ping: async () => (await pool.query('SELECT 1 AS ok')).rows[0].ok === 1,
     close: () => pool.end(),
   };
