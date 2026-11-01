@@ -47,3 +47,6 @@ You need: Node.js 18+ and Git. No Docker.
 - `public/` static files
 
 Never commit `.env`. Always use parameterized queries (`$1, $2`), never string-built SQL.
+
+## API
+- `POST /api/auth/register` body `{firstName,lastName,email,password,confirmPassword}` -> 201 (account created as `user`, status `pending`), 400 (field errors), 409 (email taken), 429 (rate limited)
