@@ -8,16 +8,15 @@
     "node": ">=20.12"
   },
   "scripts": {
-    "migrate": "node scripts/migrate.js",
-    "db:ping": "node scripts/ping.js",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
+    "nodemailer": "^10.3.1",
     "pg": "^8.13.1"
   },
   "license": "UNLICENSED"

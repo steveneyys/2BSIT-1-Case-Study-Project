@@ -19,6 +19,16 @@ function loadConfig(env = process.env) {
     databaseUrl: env.DATABASE_URL,
     dbSsl: bool(env.DB_SSL, true),
     sessionSecret: env.SESSION_SECRET,
+    // Base URL used in emailed links (must be the address users open in their browser).
+    appUrl: (env.APP_URL || `http://localhost:${Number.parseInt(env.PORT, 10) || 3000}`).replace(/\/+$/, ''),
+    // Optional. Without SMTP_HOST, emails are printed to the server console instead (dev/demo).
+    smtp: {
+      host: env.SMTP_HOST,
+      port: Number.parseInt(env.SMTP_PORT, 10) || 587,
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+      from: env.MAIL_FROM || 'Hope ERP <no-reply@localhost>',
+    },
   };
 
   // Fail fast with a clear message instead of a confusing error later.
