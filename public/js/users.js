@@ -8,6 +8,7 @@ const form = document.getElementById('user-form');
 const FIELDS = ['firstName', 'lastName', 'email', 'role'];
 let me = null;
 let editingId = null;
+let allUsers = [];
 
 function flash(kind, text) {
   msgEl.className = kind;
@@ -70,6 +71,9 @@ function render(users) {
     if (u.canManage) {
       const box = document.createElement('div');
       box.className = 'actions';
+      if (u.canApprove) box.append(button('Approve', 'primary', () => act(u, 'approve', `${u.firstName} ${u.lastName} was approved.`)));
+      if (u.canMakeAdmin) box.append(button('Make admin', '', () => act(u, 'make-admin', `${u.firstName} ${u.lastName} is now an admin.`, `Make ${u.firstName} ${u.lastName} an admin?`)));
+      if (u.canRemoveAdmin) box.append(button('Remove admin', '', () => act(u, 'remove-admin', `${u.firstName} ${u.lastName} is now a regular user.`, `Remove admin rights from ${u.firstName} ${u.lastName}?`)));
       box.append(
         u.isBlocked
           ? button('Unblock', '', () => toggleBlock(u, false))
@@ -93,7 +97,22 @@ async function load() {
   if (status === 403) { flash('bad', 'You do not have access to User Management.'); rowsEl.replaceChildren(); return; }
   if (!ok) { flash('bad', json.error || 'Could not load users.'); return; }
   msgEl.className = '';
-  render(json.users);
+  allUsers = json.users;
+  applyFilter();
+}
+
+function applyFilter() {
+  const only = document.getElementById('filter').value;
+  render(only === 'pending' ? allUsers.filter((u) => u.status === 'pending') : allUsers);
+}
+
+// Approve / make admin / remove admin: POST /api/users/:id/<action>
+async function act(u, action, okText, confirmText) {
+  if (confirmText && !window.confirm(confirmText)) return;
+  const { ok, json } = await api('POST', `/api/users/${u.id}/${action}`);
+  if (!ok) return flash('bad', json.error || 'Action failed.');
+  flash('ok', okText);
+  load();
 }
 
 async function toggleBlock(u, block) {
@@ -153,6 +172,7 @@ form.addEventListener('submit', async (e) => {
 });
 
 document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
+document.getElementById('filter').addEventListener('change', applyFilter);
 document.getElementById('add-btn').addEventListener('click', () => openDialog(null));
 let timer;
 document.getElementById('search').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 250); });
