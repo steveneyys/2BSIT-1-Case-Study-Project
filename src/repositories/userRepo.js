@@ -36,11 +36,6 @@ async function createPasswordToken(db, { userId, tokenHash, expiresAt }) {
   );
 }
 
-// Cancels every unused link for a user, so only the newest reset email works.
-async function invalidateUserTokens(db, userId) {
-  await db.query('UPDATE password_token SET used = TRUE WHERE user_id = $1 AND used = FALSE', [userId]);
-}
-
 // Atomically marks a valid token as used and returns its user id (or null). A token can only be
 // consumed once, even with two simultaneous requests.
 async function consumePasswordToken(client, tokenHash) {
@@ -53,4 +48,4 @@ async function consumePasswordToken(client, tokenHash) {
   return rows[0] ? rows[0].user_id : null;
 }
 
-module.exports = { createPendingUser, findByEmail, findById, setPasswordHash, createPasswordToken, invalidateUserTokens, consumePasswordToken };
+module.exports = { createPendingUser, findByEmail, findById, setPasswordHash, createPasswordToken, consumePasswordToken };
