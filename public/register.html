@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register - Hope, Inc. ERP</title>
+  <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Create account</h1>
+    <p class="sub">New accounts start as <strong>pending</strong> until an administrator approves them.</p>
+    <form id="register-form" novalidate>
+      <div class="row">
+        <div>
+          <label for="firstName">First name</label>
+          <input id="firstName" name="firstName" autocomplete="given-name" maxlength="50" required />
+          <div class="err" data-for="firstName"></div>
+        </div>
+        <div>
+          <label for="lastName">Last name</label>
+          <input id="lastName" name="lastName" autocomplete="family-name" maxlength="50" required />
+          <div class="err" data-for="lastName"></div>
+        </div>
+      </div>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required />
+      <div class="err" data-for="email"></div>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
+      <div class="err" data-for="password"></div>
+      <label for="confirmPassword">Confirm password</label>
+      <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" required />
+      <div class="err" data-for="confirmPassword"></div>
+      <button type="submit" id="submit">Register</button>
+      <div id="banner" class="banner" role="status" aria-live="polite"></div>
+    </form>
+    <p class="foot">Already have an account? <a href="/login.html">Sign in</a></p>
+  </main>
+  <script src="/js/register.js"></script>
+</body>
+</html>
