@@ -1,5 +1,15 @@
 {
   "name": "hope-erp",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "migrate": "node scripts/migrate.js",
+    "db:ping": "node scripts/ping.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "pg": "^8.12.0"
+  }
   "version": "0.1.0",
   "description": "Hope, Inc. ERP - database-driven business system",
   "main": "src/server.js",
