@@ -1,6 +1,6 @@
 'use strict';
 
-const { validateUserFields, ROLES } = require('../validators/user');
+const { validateUserFields, validateNameFields, ROLES } = require('../validators/user');
 const { hashToken, newRawToken, SET_PASSWORD_TTL_MS } = require('./passwordToken');
 
 const UNIQUE_VIOLATION = '23505';
@@ -8,7 +8,10 @@ const DUPLICATE_EMAIL = { status: 409, body: { errors: { email: 'An account with
 const NOT_FOUND = { status: 404, body: { error: 'User not found.' } };
 const LAST_SUPERADMIN = {
   status: 409,
-  body: { error: 'At least one active superadmin must remain. Make another superadmin active first.' },
+  body: {
+    code: 'last_superadmin',
+    error: 'This is the last active Superadmin. You cannot remove, disable or demote this account. Keep at least one active Superadmin.',
+  },
 };
 const SESSION_STALE = { status: 403, body: { error: 'Your account can no longer perform this action.' } };
 const SUPERADMIN_ONLY = (what) => ({ status: 403, body: { error: `Only a superadmin can ${what}.` } });
@@ -65,6 +68,29 @@ function createUserManagement({ db, repo, mailer, appUrl }) {
     });
   }
 
+  // The person chooses their own password through a one-time link; nobody else ever sees it.
+  async function sendSetPasswordLink(row, subject, intro) {
+    const raw = newRawToken();
+    await repo.createPasswordToken(db, {
+      userId: row.user_id,
+      tokenHash: hashToken(raw),
+      expiresAt: new Date(Date.now() + SET_PASSWORD_TTL_MS),
+      purpose: 'first_password',
+    });
+    mailer
+      .send({
+        to: row.email,
+        subject,
+        text: `Hello ${row.first_name},\n\n${intro} Set your password here (valid 24 hours, one use):\n${appUrl}/set-password.html?token=${raw}`,
+      })
+      .catch((err) => console.error('[mail] failed to send set-password link:', err.message));
+  }
+
+  async function get(actor, id) {
+    const target = await loadTarget(actor, id);
+    return target ? { status: 200, body: { user: toItem(actor, target) } } : NOT_FOUND;
+  }
+
   async function list(actor, q) {
     const rows = await repo.listUsers(db, { roles: visibleRoles(actor), q: String(q ?? '').trim().slice(0, 100) });
     return { status: 200, body: { users: rows.map((r) => toItem(actor, r)) } };
@@ -94,23 +120,7 @@ function createUserManagement({ db, repo, mailer, appUrl }) {
       throw err;
     }
 
-    // The new person chooses their own password through a one-time link; nobody else ever sees it.
-    const raw = newRawToken();
-    await repo.createPasswordToken(db, {
-      userId: row.user_id,
-      tokenHash: hashToken(raw),
-      expiresAt: new Date(Date.now() + SET_PASSWORD_TTL_MS),
-      purpose: 'first_password',
-    });
-    mailer
-      .send({
-        to: row.email,
-        subject: 'Your Hope ERP account',
-        text:
-          `Hello ${row.first_name},\n\nAn account was created for you. Set your password here (valid 24 hours, one use):\n` +
-          `${appUrl}/set-password.html?token=${raw}`,
-      })
-      .catch((err) => console.error('[mail] failed to send invitation:', err.message));
+    await sendSetPasswordLink(row, 'Your Hope ERP account', 'An account was created for you.');
     return { status: 201, body: { user: toItem(actor, row) } };
   }
 
@@ -119,7 +129,8 @@ function createUserManagement({ db, repo, mailer, appUrl }) {
     if (!target) return NOT_FOUND;
     if (!canManage(actor, target)) return { status: 403, body: { error: 'You cannot edit this account.' } };
 
-    const { errors, value } = validateUserFields(body);
+    // The email is read-only on Edit User (design), so only the names are read from the request.
+    const { errors, value } = validateNameFields(body);
     if (Object.keys(errors).length) return { status: 400, body: { errors } };
 
     let role = target.role;
@@ -137,7 +148,7 @@ function createUserManagement({ db, repo, mailer, appUrl }) {
     const demotes = target.role === 'superadmin' && role !== 'superadmin';
     const run = async (conn) => {
       try {
-        const row = await repo.updateUser(conn, target.user_id, { ...value, role });
+        const row = await repo.updateUser(conn, target.user_id, { ...value, email: target.email, role });
         return { status: 200, body: { user: toItem(actor, row) } };
       } catch (err) {
         if (err.code === UNIQUE_VIOLATION) return DUPLICATE_EMAIL;
@@ -166,13 +177,8 @@ function createUserManagement({ db, repo, mailer, appUrl }) {
     if (target.status !== 'pending') return { status: 409, body: { error: 'This account is not waiting for approval.' } };
     const row = await repo.setApproved(db, target.user_id);
     if (!row) return { status: 409, body: { error: 'This account is not waiting for approval.' } };
-    mailer
-      .send({
-        to: row.email,
-        subject: 'Your Hope ERP account was approved',
-        text: `Hello ${row.first_name},\n\nYour account was approved. You can now sign in:\n${appUrl}/login.html`,
-      })
-      .catch((err) => console.error('[mail] failed to send approval notice:', err.message));
+    // Approval does not grant any module rights. The person now sets a first password through a one-time link.
+    await sendSetPasswordLink(row, 'Your Hope ERP account was approved', 'Your account was approved.');
     return { status: 200, body: { user: toItem(actor, row) } };
   }
 
@@ -190,6 +196,7 @@ function createUserManagement({ db, repo, mailer, appUrl }) {
   }
 
   return {
+    get,
     list,
     create,
     update,

@@ -19,7 +19,7 @@ form.addEventListener('submit', async (e) => {
       window.location.href = '/home.html';
       return;
     }
-    banner.className = 'banner bad';
+    banner.className = `banner ${json.code === 'pending' ? 'warn' : 'bad'}`;
     banner.textContent = json.error || 'Something went wrong. Please try again.';
   } catch {
     banner.className = 'banner bad';

@@ -123,6 +123,16 @@ async function invalidateUserTokens(db, userId) {
   await db.query('UPDATE password_token SET used_at = now() WHERE user_id = $1 AND used_at IS NULL', [userId]);
 }
 
+// Used to tell the person WHY a link does not work (valid / used / expired / unknown). The caller must
+// already hold the raw token, so this reveals nothing to anyone else.
+async function findPasswordToken(db, tokenHash) {
+  const { rows } = await db.query(
+    'SELECT used_at, (expires_at > now()) AS live FROM password_token WHERE token_hash = $1',
+    [tokenHash]
+  );
+  return rows[0] || null;
+}
+
 // Atomically marks a valid token as used and returns its user id (or null). A token can only be
 // consumed once, even with two simultaneous requests. Tokens of deleted accounts are refused.
 async function consumePasswordToken(client, tokenHash) {
@@ -139,5 +149,5 @@ async function consumePasswordToken(client, tokenHash) {
 module.exports = {
   createPendingUser, findByEmail, findById, setPasswordHash,
   listUsers, insertUser, updateUser, setBlocked, lockActiveSuperadmins, setApproved, setRole,
-  createPasswordToken, invalidateUserTokens, consumePasswordToken,
+  createPasswordToken, invalidateUserTokens, findPasswordToken, consumePasswordToken,
 };

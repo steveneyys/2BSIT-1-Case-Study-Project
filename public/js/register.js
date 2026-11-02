@@ -3,7 +3,7 @@
 const form = document.getElementById('register-form');
 const banner = document.getElementById('banner');
 const submit = document.getElementById('submit');
-const fields = ['firstName', 'lastName', 'email', 'password', 'confirmPassword'];
+const fields = ['firstName', 'lastName', 'email'];
 
 function showErrors(errors = {}) {
   for (const f of fields) {
@@ -23,11 +23,6 @@ form.addEventListener('submit', async (e) => {
   banner.className = 'banner';
 
   const data = Object.fromEntries(fields.map((f) => [f, form.elements[f].value]));
-  if (data.password !== data.confirmPassword) {
-    showErrors({ confirmPassword: 'Passwords do not match.' });
-    return;
-  }
-
   submit.disabled = true;
   try {
     const res = await fetch('/api/auth/register', {
