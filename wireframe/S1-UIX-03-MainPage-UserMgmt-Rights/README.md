@@ -29,8 +29,10 @@
 - A normal User cannot open User Management or Rights.
 - Approval and disapproval of registrations are Superadmin-only.
 
+
 ## Design system
 Uses S1-UIX-01. S1-UIX-04 contains the hi-fi version.
+
 
 ## Related tasks
 S1-DEV-05, S1-DEV-06, S1-DEV-07, S1-DEV-08, S1-TST-03, S1-TST-04
