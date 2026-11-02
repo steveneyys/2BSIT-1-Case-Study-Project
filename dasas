@@ -1,0 +1,11 @@
+[35msrc/repositories/userRepo.js[m[36m:[m[32m6[m[36m:[m//   [1;31mrole_code[m AS role, [1;31mapproval_status[m AS status.
+[35msrc/repositories/userRepo.js[m[36m:[m[32m10[m[36m:[m  'user_id, first_name, last_name, email, password_hash, [1;31mrole_code[m AS role, is_blocked, [1;31mapproval_status[m AS status';
+[35msrc/repositories/userRepo.js[m[36m:[m[32m12[m[36m:[mconst LIST_COLUMNS = 'user_id, first_name, last_name, email, [1;31mrole_code[m AS role, is_blocked, [1;31mapproval_status[m AS status';
+[35msrc/repositories/userRepo.js[m[36m:[m[32m16[m[36m:[m    `INSERT INTO app_user (first_name, last_name, email, password_hash, [1;31mrole_code[m, is_blocked, [1;31mapproval_status[m)
+[35msrc/repositories/userRepo.js[m[36m:[m[32m42[m[36m:[m  let where = '[1;31mrole_code[m = ANY($1)';
+[35msrc/repositories/userRepo.js[m[36m:[m[32m57[m[36m:[m    `INSERT INTO app_user (first_name, last_name, email, password_hash, [1;31mrole_code[m, is_blocked, [1;31mapproval_status[m)
+[35msrc/repositories/userRepo.js[m[36m:[m[32m67[m[36m:[m    `UPDATE app_user SET first_name = $1, last_name = $2, email = $3, [1;31mrole_code[m = $4
+[35msrc/repositories/userRepo.js[m[36m:[m[32m89[m[36m:[m     WHERE [1;31mrole_code[m = 'superadmin' AND NOT is_blocked AND [1;31mapproval_status[m = 'active' AND NOT is_deleted
+[35msrc/repositories/userRepo.js[m[36m:[m[32m97[m[36m:[m    `UPDATE app_user SET [1;31mapproval_status[m = 'active'
+[35msrc/repositories/userRepo.js[m[36m:[m[32m98[m[36m:[m     WHERE user_id = $1 AND [1;31mapproval_status[m = 'pending' AND NOT is_deleted RETURNING ${LIST_COLUMNS}`,
+[35msrc/repositories/userRepo.js[m[36m:[m[32m106[m[36m:[m    `UPDATE app_user SET [1;31mrole_code[m = $1 WHERE user_id = $2 AND NOT is_deleted RETURNING ${LIST_COLUMNS}`,
