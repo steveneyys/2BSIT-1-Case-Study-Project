@@ -9,6 +9,7 @@ const FIELDS = ['firstName', 'lastName', 'email', 'role'];
 let me = null;
 let editingId = null;
 let allUsers = [];
+let statusFilter = 'all';
 
 function flash(kind, text) {
   msgEl.className = kind;
@@ -36,6 +37,22 @@ function cell(text, className) {
 function statusOf(u) {
   if (u.isBlocked) return ['Blocked', 'blocked'];
   return u.status === 'pending' ? ['Pending', 'pending'] : ['Active', 'active'];
+}
+
+const TABS = [['all', 'All'], ['active', 'Active'], ['pending', 'Pending'], ['blocked', 'Blocked']];
+
+function renderTabs() {
+  const box = document.getElementById('status-tabs');
+  box.replaceChildren();
+  for (const [key, label] of TABS) {
+    const n = key === 'all' ? allUsers.length : allUsers.filter((u) => statusOf(u)[1] === key).length;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `${label} ${n}`;
+    b.setAttribute('aria-pressed', String(statusFilter === key));
+    b.addEventListener('click', () => { statusFilter = key; applyFilter(); });
+    box.append(b);
+  }
 }
 
 function button(label, className, onClick, disabled = false, title = '') {
@@ -102,8 +119,8 @@ async function load() {
 }
 
 function applyFilter() {
-  const only = document.getElementById('filter').value;
-  render(only === 'pending' ? allUsers.filter((u) => u.status === 'pending') : allUsers);
+  renderTabs();
+  render(statusFilter === 'all' ? allUsers : allUsers.filter((u) => statusOf(u)[1] === statusFilter));
 }
 
 // Approve / make admin / remove admin: POST /api/users/:id/<action>
@@ -133,6 +150,7 @@ function showErrors(errors = {}) {
 function openDialog(user) {
   editingId = user ? user.id : null;
   document.getElementById('dialog-title').textContent = user ? 'Edit User' : 'Add User';
+  document.getElementById('save-btn').textContent = 'Save User';
   document.getElementById('invite-note').hidden = Boolean(user);
   document.getElementById('role-wrap').hidden = me.role !== 'superadmin';
   form.elements.firstName.value = user ? user.firstName : '';
@@ -172,7 +190,7 @@ form.addEventListener('submit', async (e) => {
 });
 
 document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
-document.getElementById('filter').addEventListener('change', applyFilter);
+document.getElementById('user-close').addEventListener('click', () => dialog.close());
 document.getElementById('add-btn').addEventListener('click', () => openDialog(null));
 let timer;
 document.getElementById('search').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 250); });
@@ -185,15 +203,8 @@ let catalog = null;
 
 const boxes = () => [...rightsBody.querySelectorAll('input[data-right]')];
 
-// A module box is ticked when all its rights are ticked, "mixed" when only some are.
-function syncModuleBoxes() {
-  for (const mod of rightsBody.querySelectorAll('.rights-module')) {
-    const subs = [...mod.querySelectorAll('input[data-right]')];
-    const on = subs.filter((b) => b.checked).length;
-    const head = mod.querySelector('input[data-module]');
-    head.checked = on === subs.length && subs.length > 0;
-    head.indeterminate = on > 0 && on < subs.length;
-  }
+function updateCount() {
+  document.getElementById('rights-count').textContent = `Module and function access \u00b7 ${boxes().length} rights`;
 }
 
 function buildRights(modules, granted) {
@@ -206,17 +217,22 @@ function buildRights(modules, granted) {
     return;
   }
   for (const m of modules) {
-    const mod = document.createElement('div');
+    const mod = document.createElement('section');
     mod.className = 'rights-module';
-    const headLabel = document.createElement('label');
-    const head = document.createElement('input');
-    head.type = 'checkbox';
-    head.dataset.module = m.moduleCode;
-    head.addEventListener('change', () => {
-      mod.querySelectorAll('input[data-right]').forEach((b) => { b.checked = head.checked; });
-      syncModuleBoxes();
-    });
-    headLabel.append(head, document.createTextNode(m.moduleName));
+    const head = document.createElement('header');
+    const title = document.createElement('h3');
+    title.textContent = m.moduleName;
+    const shortcuts = document.createElement('span');
+    const setAll = (on) => () => mod.querySelectorAll('input[data-right]').forEach((b) => { b.checked = on; });
+    for (const [label, on] of [['All', true], ['None', false]]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.setAttribute('aria-label', `${label} rights in ${m.moduleName}`);
+      b.addEventListener('click', setAll(on));
+      shortcuts.append(b);
+    }
+    head.append(title, shortcuts);
     const list = document.createElement('div');
     list.className = 'rights-list';
     for (const r of m.rights) {
@@ -225,20 +241,20 @@ function buildRights(modules, granted) {
       box.type = 'checkbox';
       box.dataset.right = r.code;
       box.checked = granted.has(r.code);
-      box.addEventListener('change', syncModuleBoxes);
       label.append(box, document.createTextNode(r.description));
       list.append(label);
     }
-    mod.append(headLabel, list);
+    mod.append(head, list);
     rightsBody.append(mod);
   }
-  syncModuleBoxes();
+  updateCount();
 }
 
 async function openRights(u) {
   rightsUser = u;
   document.getElementById('rights-error').textContent = '';
-  document.getElementById('rights-title').textContent = `Rights: ${u.firstName} ${u.lastName}`;
+  document.getElementById('rights-title').textContent = 'Assign Rights';
+  document.getElementById('rights-who').textContent = `${u.firstName} ${u.lastName} \u00b7 ${u.email}`;
   const [cat, mine] = await Promise.all([
     catalog ? { ok: true, json: catalog } : api('GET', '/api/rights/catalog'),
     api('GET', `/api/rights/users/${u.id}`),
@@ -249,9 +265,8 @@ async function openRights(u) {
   rightsDialog.showModal();
 }
 
-document.getElementById('rights-all').addEventListener('click', () => { boxes().forEach((b) => { b.checked = true; }); syncModuleBoxes(); });
-document.getElementById('rights-none').addEventListener('click', () => { boxes().forEach((b) => { b.checked = false; }); syncModuleBoxes(); });
 document.getElementById('rights-cancel').addEventListener('click', () => rightsDialog.close());
+document.getElementById('rights-close').addEventListener('click', () => rightsDialog.close());
 document.getElementById('rights-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const save = document.getElementById('rights-save');
