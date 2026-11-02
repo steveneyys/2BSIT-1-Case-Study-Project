@@ -15,9 +15,15 @@ form.addEventListener('submit', async (e) => {
       body: JSON.stringify({ email: form.elements.email.value }),
     });
     const json = await res.json().catch(() => ({}));
-    banner.className = `banner ${res.ok ? 'ok' : 'bad'}`;
-    banner.textContent = json.message || json.error || 'Something went wrong. Please try again.';
-    if (res.ok) form.reset();
+    if (res.ok) {
+      form.reset();
+      if (json.message) document.getElementById('done-msg').textContent = json.message;
+      document.getElementById('form-view').hidden = true;
+      document.getElementById('done').hidden = false;
+    } else {
+      banner.className = 'banner bad';
+      banner.textContent = json.error || 'Something went wrong. Please try again.';
+    }
   } catch {
     banner.className = 'banner bad';
     banner.textContent = 'Could not reach the server. Please try again.';

@@ -38,7 +38,9 @@ form.addEventListener('submit', async (e) => {
     const json = await res.json().catch(() => ({}));
     if (res.status === 201) {
       form.reset();
-      showBanner('ok', json.message);
+      if (json.message) document.getElementById('done-msg').textContent = json.message;
+      document.getElementById('form-view').hidden = true;
+      document.getElementById('done').hidden = false;
     } else if (json.errors) {
       showErrors(json.errors);
     } else {
