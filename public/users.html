@@ -61,6 +61,22 @@
       </div>
     </form>
   </dialog>
+  <dialog id="rights-dialog">
+    <form id="rights-form" method="dialog">
+      <h2 id="rights-title">Rights</h2>
+      <p class="muted" style="font-size:.85rem;margin:0">Tick what this person may do. A module box selects or clears everything under it.</p>
+      <div class="rights-shortcuts">
+        <button class="btn" type="button" id="rights-all">All</button>
+        <button class="btn" type="button" id="rights-none">None</button>
+      </div>
+      <div id="rights-body"></div>
+      <div class="err" id="rights-error"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="rights-cancel">Cancel</button>
+        <button class="btn primary" type="submit" id="rights-save">Save rights</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/js/users.js"></script>
 </body>
 </html>

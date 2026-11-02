@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const rightsRoutes = require('./routes/rights');
 const { attachUser } = require('./middleware/auth');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
@@ -24,6 +25,7 @@ function createApp({ config, db }) {
   app.use('/api/health', healthRoutes(db));
   app.use('/api/auth', authRoutes(db, config));
   app.use('/api/users', userRoutes(db, config));
+  app.use('/api/rights', rightsRoutes(db));
   // Later PRs mount here: /api/auth (DEV-02..04), /api/users (DEV-05..06), /api/rights (DEV-07)
 
   app.use(notFound);

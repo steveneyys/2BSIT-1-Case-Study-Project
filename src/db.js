@@ -39,6 +39,24 @@ function createDb(config) {
         client.release();
       }
     },
+    // Like tx(), but tells the database WHO is acting. The audit triggers (audit_user() in the base
+    // migration) read the "app.username" setting, so audit_log and the stamp columns name the real
+    // person instead of the shared database login. set_config(..., true) lasts for this transaction only.
+    txAs: async (username, fn) => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query("SELECT set_config('app.username', $1, true)", [username]);
+        const result = await fn(client);
+        await client.query('COMMIT');
+        return result;
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+    },
     ping: async () => (await pool.query('SELECT 1 AS ok')).rows[0].ok === 1,
     close: () => pool.end(),
   };

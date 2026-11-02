@@ -78,7 +78,7 @@ function render(users) {
         u.isBlocked
           ? button('Unblock', '', () => toggleBlock(u, false))
           : button('Block', 'danger', () => toggleBlock(u, true), u.isSelf, u.isSelf ? 'You cannot block yourself' : ''),
-        button('Rights', '', () => {}, true, 'Coming in S1-DEV-07'),
+        ...(u.canSetRights ? [button('Rights', '', () => openRights(u))] : []),
         button('Edit', '', () => openDialog(u))
       );
       actionsTd.append(box);
@@ -176,6 +176,97 @@ document.getElementById('filter').addEventListener('change', applyFilter);
 document.getElementById('add-btn').addEventListener('click', () => openDialog(null));
 let timer;
 document.getElementById('search').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 250); });
+
+// ---- Rights dialog (S1-DEV-07) ----
+const rightsDialog = document.getElementById('rights-dialog');
+const rightsBody = document.getElementById('rights-body');
+let rightsUser = null;
+let catalog = null;
+
+const boxes = () => [...rightsBody.querySelectorAll('input[data-right]')];
+
+// A module box is ticked when all its rights are ticked, "mixed" when only some are.
+function syncModuleBoxes() {
+  for (const mod of rightsBody.querySelectorAll('.rights-module')) {
+    const subs = [...mod.querySelectorAll('input[data-right]')];
+    const on = subs.filter((b) => b.checked).length;
+    const head = mod.querySelector('input[data-module]');
+    head.checked = on === subs.length && subs.length > 0;
+    head.indeterminate = on > 0 && on < subs.length;
+  }
+}
+
+function buildRights(modules, granted) {
+  rightsBody.replaceChildren();
+  if (!modules.length) {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = 'No rights are defined yet. Ask the DB Admin to run the rights seed (S1-DBA-05).';
+    rightsBody.append(p);
+    return;
+  }
+  for (const m of modules) {
+    const mod = document.createElement('div');
+    mod.className = 'rights-module';
+    const headLabel = document.createElement('label');
+    const head = document.createElement('input');
+    head.type = 'checkbox';
+    head.dataset.module = m.moduleCode;
+    head.addEventListener('change', () => {
+      mod.querySelectorAll('input[data-right]').forEach((b) => { b.checked = head.checked; });
+      syncModuleBoxes();
+    });
+    headLabel.append(head, document.createTextNode(m.moduleName));
+    const list = document.createElement('div');
+    list.className = 'rights-list';
+    for (const r of m.rights) {
+      const label = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.dataset.right = r.code;
+      box.checked = granted.has(r.code);
+      box.addEventListener('change', syncModuleBoxes);
+      label.append(box, document.createTextNode(r.description));
+      list.append(label);
+    }
+    mod.append(headLabel, list);
+    rightsBody.append(mod);
+  }
+  syncModuleBoxes();
+}
+
+async function openRights(u) {
+  rightsUser = u;
+  document.getElementById('rights-error').textContent = '';
+  document.getElementById('rights-title').textContent = `Rights: ${u.firstName} ${u.lastName}`;
+  const [cat, mine] = await Promise.all([
+    catalog ? { ok: true, json: catalog } : api('GET', '/api/rights/catalog'),
+    api('GET', `/api/rights/users/${u.id}`),
+  ]);
+  if (!cat.ok || !mine.ok) return flash('bad', (mine.json && mine.json.error) || 'Could not load rights.');
+  catalog = cat.json;
+  buildRights(catalog.modules, new Set(mine.json.rights));
+  rightsDialog.showModal();
+}
+
+document.getElementById('rights-all').addEventListener('click', () => { boxes().forEach((b) => { b.checked = true; }); syncModuleBoxes(); });
+document.getElementById('rights-none').addEventListener('click', () => { boxes().forEach((b) => { b.checked = false; }); syncModuleBoxes(); });
+document.getElementById('rights-cancel').addEventListener('click', () => rightsDialog.close());
+document.getElementById('rights-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const save = document.getElementById('rights-save');
+  save.disabled = true;
+  try {
+    const rights = boxes().filter((b) => b.checked).map((b) => b.dataset.right);
+    const { ok, json } = await api('PUT', `/api/rights/users/${rightsUser.id}`, { rights });
+    if (!ok) { document.getElementById('rights-error').textContent = (json.errors && json.errors.rights) || json.error || 'Could not save.'; return; }
+    rightsDialog.close();
+    const n = json.changes.granted.length + json.changes.revoked.length;
+    flash('ok', n ? `Rights saved for ${rightsUser.firstName} ${rightsUser.lastName} (${json.changes.granted.length} added, ${json.changes.revoked.length} removed).` : 'No changes to save.');
+  } finally {
+    save.disabled = false;
+  }
+});
 
 (async () => {
   const { ok, json } = await api('GET', '/api/auth/me');

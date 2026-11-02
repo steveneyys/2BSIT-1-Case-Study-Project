@@ -214,3 +214,14 @@ test('guard does not get in the way when another live superadmin exists', async 
   assert.strictEqual((await um.block(SA, 2)).status, 200);
   assert.strictEqual((await um.update(SA, 2, { firstName: 'A', lastName: 'B', email: 'a@b.test', role: 'admin' })).status, 200);
 });
+
+test('list: only users can be given rights (Rights button flag)', async () => {
+  const { um } = setup(all);
+  const sa = (await um.list(SA, '')).body.users;
+  assert.strictEqual(sa.find((u) => u.id === 5).canSetRights, true);
+  assert.strictEqual(sa.find((u) => u.id === 4).canSetRights, false); // admin
+  assert.strictEqual(sa.find((u) => u.id === 2).canSetRights, false); // superadmin
+  const ad = (await um.list(AD, '')).body.users;
+  assert.strictEqual(ad.find((u) => u.id === 5).canSetRights, true);
+  assert.strictEqual(ad.find((u) => u.id === 4).canSetRights, false);
+});

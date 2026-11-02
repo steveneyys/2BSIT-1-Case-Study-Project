@@ -35,6 +35,7 @@ function toItem(actor, row) {
     canManage: canManage(actor, row),
     isSelf,
     // Buttons the UI may show (the server re-checks every action):
+    canSetRights: canManage(actor, row) && row.role === 'user',
     canApprove: isSuper && row.status === 'pending',
     canMakeAdmin: isSuper && row.status === 'active' && row.role === 'user',
     canRemoveAdmin: isSuper && row.role === 'admin' && !isSelf,
