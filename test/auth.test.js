@@ -86,7 +86,9 @@ function dbForToken(validHash) {
       return { rows: [] };
     },
   };
-  return { calls, tx: async (fn) => fn(client) };
+  // db.query serves the read-only "why does this link not work" lookup; `rows` lets a test choose what it finds.
+  const db = { calls, tx: async (fn) => fn(client), lookup: [], query: async () => ({ rows: db.lookup }) };
+  return db;
 }
 
 test('set-password: valid token sets a hashed password exactly once', async () => {
@@ -103,7 +105,41 @@ test('set-password: bad/expired/reused token changes nothing', async () => {
   const db = dbForToken(hashToken('good-token'));
   const res = await setPassword(db, { token: 'other', password: 'newpass123', confirmPassword: 'newpass123' });
   assert.strictEqual(res.status, 400);
+  assert.strictEqual(res.body.code, 'invalid');
   assert.ok(!db.calls.some((c) => /UPDATE app_user/.test(c.sql)));
+});
+
+test('set-password: tells the page whether the link is used or expired', async () => {
+  const bad = { token: 'other', password: 'newpass123', confirmPassword: 'newpass123' };
+  const used = dbForToken('x'); used.lookup = [{ used_at: new Date(), live: true }];
+  assert.strictEqual((await setPassword(used, bad)).body.code, 'used');
+  const expired = dbForToken('x'); expired.lookup = [{ used_at: null, live: false }];
+  assert.strictEqual((await setPassword(expired, bad)).body.code, 'expired');
+});
+
+test('passwordTokenStatus: valid / used / expired / invalid', async () => {
+  const { passwordTokenStatus } = require('../src/services/authService');
+  const q = (rows) => ({ query: async () => ({ rows }) });
+  assert.strictEqual(await passwordTokenStatus(q([{ used_at: null, live: true }]), 't'), 'valid');
+  assert.strictEqual(await passwordTokenStatus(q([{ used_at: new Date(), live: true }]), 't'), 'used');
+  assert.strictEqual(await passwordTokenStatus(q([{ used_at: null, live: false }]), 't'), 'expired');
+  assert.strictEqual(await passwordTokenStatus(q([]), 't'), 'invalid');
+  assert.strictEqual(await passwordTokenStatus(q([]), ''), 'invalid');
+});
+
+test('login: pending account with no password gets the Pending banner; blocked gets the Blocked banner', async () => {
+  const p = await login(await dbWithUser({ password_hash: null, status: 'pending' }), { email: 'ana@example.com', password: 'whatever1' });
+  assert.strictEqual(p.status, 403);
+  assert.strictEqual(p.body.code, 'pending');
+  const b = await login(await dbWithUser({ is_blocked: true }), { email: 'ana@example.com', password: 'secret123' });
+  assert.strictEqual(b.body.code, 'blocked');
+});
+
+test('session: remember-me lifetime is honoured', () => {
+  const now = Date.now();
+  const t = createSessionToken(1, SECRET, now, 7 * 24 * 3600 * 1000);
+  assert.strictEqual(verifySessionToken(t, SECRET, now + 6 * 24 * 3600 * 1000), 1);
+  assert.strictEqual(verifySessionToken(t, SECRET, now + 8 * 24 * 3600 * 1000), null);
 });
 
 test('set-password: weak or mismatched password is rejected before touching the token', async () => {

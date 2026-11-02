@@ -19,6 +19,10 @@ function loadConfig(env = process.env) {
     databaseUrl: env.DATABASE_URL,
     dbSsl: bool(env.DB_SSL, true),
     sessionSecret: env.SESSION_SECRET,
+    // "Remember me" session length (design leaves the duration to the team; default 7 days).
+    rememberDays: Number.parseInt(env.REMEMBER_ME_DAYS, 10) || 7,
+    // Google sign-in (optional). Without a client ID the Google button is hidden.
+    googleClientId: env.GOOGLE_CLIENT_ID || null,
     // Base URL used in emailed links (must be the address users open in their browser).
     appUrl: (env.APP_URL || `http://localhost:${Number.parseInt(env.PORT, 10) || 3000}`).replace(/\/+$/, ''),
     // Optional. Without SMTP_HOST, emails are printed to the server console instead (dev/demo).

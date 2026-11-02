@@ -15,9 +15,16 @@ function validateUserFields(body = {}) {
   if (!lastName) errors.lastName = 'Last name is required.';
   else if (lastName.length > 50) errors.lastName = 'Last name must be 50 characters or fewer.';
   if (!email) errors.email = 'Email is required.';
-  else if (email.length > 254 || !EMAIL_RE.test(email)) errors.email = 'Enter a valid email address.';
+  else if (email.length > 100 || !EMAIL_RE.test(email)) errors.email = 'Enter a valid email address.';
 
   return { errors, value: { firstName, lastName, email } };
 }
 
-module.exports = { validateUserFields, ROLES };
+// Edit User: the email is read-only (design S1-UIX-04), so only the names are validated.
+function validateNameFields(body = {}) {
+  const { errors, value } = validateUserFields({ ...body, email: 'unchanged@example.com' });
+  delete errors.email;
+  return { errors, value: { firstName: value.firstName, lastName: value.lastName } };
+}
+
+module.exports = { validateUserFields, validateNameFields, ROLES };

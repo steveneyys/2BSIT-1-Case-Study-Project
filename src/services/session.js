@@ -9,8 +9,8 @@ const sign = (data, secret) => crypto.createHmac('sha256', secret).update(data).
 
 // Token = base64url(JSON{uid,exp}) + '.' + HMAC. Stateless; the user row is re-checked on every
 // request (middleware/auth.js), so blocking a user takes effect immediately.
-function createSessionToken(userId, secret, now = Date.now()) {
-  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: now + SESSION_TTL_MS })).toString('base64url');
+function createSessionToken(userId, secret, now = Date.now(), ttlMs = SESSION_TTL_MS) {
+  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: now + ttlMs })).toString('base64url');
   return `${payload}.${sign(payload, secret)}`;
 }
 

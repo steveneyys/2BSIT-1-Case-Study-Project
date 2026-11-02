@@ -24,6 +24,7 @@ module.exports = function userRoutes(db, config) {
 
   router.get('/', handle((req) => um.list(req.user, req.query.q)));
   router.post('/', handle((req) => um.create(req.user, req.body)));
+  router.get('/:id', handle((req) => um.get(req.user, req.params.id)));
   router.patch('/:id', handle((req) => um.update(req.user, req.params.id, req.body)));
   router.post('/:id/block', handle((req) => um.block(req.user, req.params.id)));
   router.post('/:id/unblock', handle((req) => um.unblock(req.user, req.params.id)));

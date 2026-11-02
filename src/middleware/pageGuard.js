@@ -11,6 +11,7 @@ const { attachUser } = require('./auth');
 const PAGE_RULES = {
   '/home.html': { roles: null },
   '/users.html': { roles: ['admin', 'superadmin'] },
+  '/user-form.html': { roles: ['admin', 'superadmin'] },
 };
 
 // Same page, different spelling: /USERS.HTML, /%75sers.html, //users.html, /a/../users.html.

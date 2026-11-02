@@ -1,7 +1,6 @@
 'use strict';
 
 const { validateRegistration } = require('../validators/register');
-const { hashPassword } = require('./password');
 const userRepo = require('../repositories/userRepo');
 
 const UNIQUE_VIOLATION = '23505';
@@ -12,8 +11,7 @@ async function registerUser(db, body) {
   if (Object.keys(errors).length) return { status: 400, body: { errors } };
 
   try {
-    const passwordHash = await hashPassword(value.password);
-    await userRepo.createPendingUser(db, { ...value, passwordHash });
+    await userRepo.createPendingUser(db, { ...value, passwordHash: null });
   } catch (err) {
     if (err.code === UNIQUE_VIOLATION) {
       return { status: 409, body: { errors: { email: 'An account with this email already exists.' } } };
@@ -22,7 +20,7 @@ async function registerUser(db, body) {
   }
   return {
     status: 201,
-    body: { message: 'Registration received. An administrator must approve your account before you can sign in.' },
+    body: { message: 'Registration received. Your account is Pending approval. A Superadmin must approve your request before you can sign in.' },
   };
 }
 
