@@ -41,3 +41,22 @@ dialog .err { color:var(--danger); font-size:.8rem; min-height:1em; }
 .rights-list label { font-weight:400; display:flex; align-items:center; gap:.4rem; margin:0; font-size:.9rem; }
 dialog input[type=checkbox] { width:auto; }
 dialog .buttons { display:flex; justify-content:flex-end; gap:.5rem; margin-top:1.25rem; }
+
+/* Main page (S1-DEV-08) */
+.layout { display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
+.sidebar { background:#0f172a; color:#e2e8f0; padding:1.25rem 1rem; display:flex; flex-direction:column; }
+.sidebar .brand { font-weight:700; font-size:1.1rem; margin-bottom:1.25rem; }
+.sidebar nav { display:flex; flex-direction:column; gap:.2rem; flex:1; }
+.sidebar nav a, .sidebar nav .soon { padding:.55rem .75rem; border-radius:8px; color:#cbd5e1; text-decoration:none; font-size:.95rem; }
+.sidebar nav a:hover, .sidebar nav a.active { background:#1e293b; color:#fff; }
+.sidebar nav .soon { color:#64748b; cursor:default; }
+.side-footer { margin-top:1rem; display:flex; flex-direction:column; gap:.5rem; }
+.side-footer .muted { color:#94a3b8; font-size:.85rem; }
+.content { padding:2rem; max-width:960px; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:1rem; margin-top:1.5rem; }
+.tile { background:#fff; border:1px solid var(--border); border-radius:12px; padding:1.25rem; text-decoration:none; color:inherit; box-shadow:0 4px 12px rgb(0 0 0 / .05); display:block; }
+a.tile:hover { border-color:var(--primary); }
+.tile h2 { margin:0 0 .35rem; font-size:1.05rem; }
+.tile p { margin:0; color:var(--muted); font-size:.9rem; }
+.tile.disabled { opacity:.6; }
+@media (max-width: 720px) { .layout { grid-template-columns:1fr; } .sidebar { flex-direction:row; flex-wrap:wrap; align-items:center; gap:.5rem; } .sidebar nav { flex-direction:row; flex-wrap:wrap; } }
