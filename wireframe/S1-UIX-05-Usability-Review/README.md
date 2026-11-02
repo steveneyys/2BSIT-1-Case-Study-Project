@@ -57,4 +57,5 @@ Severity: High = blocks a task or breaks security; Medium = confusing or off-des
 ## Notes
 - Only items marked Pass or Fail were actually tested. "Not run" means not tested.
 - Task plan status is metadata, not test evidence.
+- 
 - Rights count is aligned with S1-UIX-04 and S1-DBA-05.
