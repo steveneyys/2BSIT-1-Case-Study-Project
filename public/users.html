@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management - Hope, Inc. ERP</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <header class="app-top">
+    <a class="brand" href="/home.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>hope.</a>
+    <div id="who" class="who"></div>
+    <button id="logout" class="link-btn" type="button">Sign out &#8599;</button>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Main menu"></nav>
+  <main class="page">
+    <h1>User Management</h1>
+    <div style="height:1rem"></div>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search by name or email" aria-label="Search users" />
+      <button class="btn primary" id="add-btn" type="button">Add User</button>
+    </div>
+    <div class="status-tabs" id="status-tabs" role="group" aria-label="Filter by account status"></div>
+    <div id="msg" role="status" aria-live="polite"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Account status</th><th>Actions</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+  <dialog id="user-dialog" aria-labelledby="dialog-title">
+    <form id="user-form" method="dialog" novalidate>
+      <div class="head"><h2 id="dialog-title">Add User</h2><button type="button" class="close" id="user-close" aria-label="Close">&times;</button></div>
+      <hr />
+      <label for="firstName">First name</label>
+      <input id="firstName" name="firstName" maxlength="50" required />
+      <div class="err" data-for="firstName"></div>
+      <label for="lastName">Last name</label>
+      <input id="lastName" name="lastName" maxlength="50" required />
+      <div class="err" data-for="lastName"></div>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" maxlength="100" required />
+      <div class="err" data-for="email"></div>
+      <div id="role-wrap" hidden>
+        <label for="role">Role</label>
+        <select id="role" name="role">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="superadmin">Superadmin</option>
+        </select>
+        <div class="err" data-for="role"></div>
+      </div>
+      <p class="muted" id="invite-note" style="font-size:.82rem;margin:1rem 0 0">The person receives an email link to set their own password.</p>
+      <div class="err" id="form-error"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="cancel-btn">Cancel</button>
+        <button class="btn primary" type="submit" id="save-btn">Save User</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="rights-dialog" aria-labelledby="rights-title">
+    <form id="rights-form" method="dialog">
+      <div class="rights-head">
+        <div class="head"><h2 id="rights-title">Assign Rights</h2><button type="button" class="close" id="rights-close" aria-label="Close">&times;</button></div>
+        <p id="rights-who"></p>
+        <p id="rights-count">Module and function access</p>
+      </div>
+      <div id="rights-body"></div>
+      <div class="rights-foot">
+        <div class="err" id="rights-error"></div>
+        <div class="buttons">
+          <button class="btn" type="button" id="rights-cancel">Cancel</button>
+          <button class="btn primary" type="submit" id="rights-save">Save Rights</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+  <script src="/js/shell.js"></script>
+  <script src="/js/users.js"></script>
+</body>
+</html>

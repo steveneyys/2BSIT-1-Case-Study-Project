@@ -1,0 +1,80 @@
+/* Signed-in workspace (S1-UIX-03 / S1-UIX-04) */
+.app-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1.1rem clamp(1rem, 4vw, 3rem) 0; }
+.app-top .who { font-size: .85rem; color: var(--ink); }
+.app-top .who .dot { color: var(--muted); padding: 0 .3rem; }
+.link-btn { background: none; border: 0; padding: .5rem 0; font: 600 .85rem var(--font-body); color: var(--ink); cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+
+.tabs { display: flex; gap: .5rem; flex-wrap: wrap; padding: 1.25rem clamp(1rem, 4vw, 3rem) 0; }
+.tabs a, .tabs span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1.4rem; border-radius: 4px; font-size: .88rem; text-decoration: none; color: var(--ink); background: transparent; }
+.tabs a:hover { background: var(--wash); }
+.tabs a.active { background: var(--primary); color: #fff; font-weight: 500; }
+.tabs span.soon { color: var(--muted); cursor: default; }
+
+main.page { padding: 2rem clamp(1rem, 4vw, 3rem) 4rem; max-width: 1200px; }
+main.page h1 { font-size: 1.2rem; letter-spacing: -.01em; }
+main.page .lead { margin: .9rem 0 1.5rem; font-size: .9rem; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1.25rem; }
+.card h2 { font-size: 1.05rem; margin-bottom: .75rem; }
+.card + .card { margin-top: 1rem; }
+
+/* Dashboard */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.tile { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1.1rem 1.25rem; color: inherit; text-decoration: none; }
+a.tile:hover { border-color: var(--primary); }
+.tile .k { font-size: .8rem; color: var(--muted); }
+.tile .v { font-family: var(--font-head); font-weight: 600; font-size: 1.15rem; margin-top: .6rem; }
+.tile.disabled { background: var(--wash); }
+.card .quick { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+
+#msg { margin: 0 0 1rem; padding: .7rem .9rem; border-radius: 4px; display: none; font-size: .88rem; }
+#msg.bad { display: block; background: var(--terracotta-wash); color: var(--terracotta); }
+#msg.ok { display: block; background: var(--wash); color: var(--ink); }
+
+/* User management */
+.toolbar { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+.toolbar input[type=search] { max-width: 380px; }
+.status-tabs { display: flex; gap: 1.25rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+.status-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: .6rem 0; font: 400 .85rem var(--font-body); color: var(--muted); cursor: pointer; }
+.status-tabs button[aria-pressed="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--primary); }
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1rem; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .9rem 1rem; font-size: .85rem; white-space: nowrap; }
+th { background: var(--wash); font-weight: 600; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+td:first-child { font-weight: 600; }
+tbody tr + tr td { border-top: 1px solid transparent; }
+.actions { display: flex; gap: .15rem; flex-wrap: wrap; align-items: center; }
+.actions .btn { min-height: 36px; padding: 0 .55rem; border: 0; background: none; font-size: .8rem; }
+.actions .btn:hover { text-decoration: underline; background: none; }
+.actions .btn.primary { background: var(--primary); color: #fff; padding: 0 .8rem; }
+.actions .btn.danger { color: var(--terracotta); background: none; }
+.actions .btn:disabled { background: none; color: var(--muted); }
+
+/* Dialogs */
+dialog { border: 1px solid var(--border); border-radius: 4px; padding: 1.5rem; width: min(440px, 94vw); color: var(--ink); background: var(--surface); box-shadow: 0 20px 40px rgb(24 25 32 / .18); }
+dialog::backdrop { background: rgb(24 25 32 / .45); }
+dialog h2 { font-size: 1.15rem; }
+dialog .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+dialog .close { background: none; border: 0; font-size: 1.4rem; line-height: 1; width: 44px; height: 44px; margin: -.6rem -.6rem 0 0; cursor: pointer; color: var(--muted); }
+dialog hr { border: 0; border-top: 1px solid var(--border); margin: .9rem 0 0; }
+dialog .buttons { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.25rem; }
+#rights-dialog { width: min(760px, 96vw); padding: 0; display: none; }
+#rights-dialog[open] { display: flex; flex-direction: column; max-height: 90vh; }
+#rights-dialog form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.rights-head { padding: 1.5rem 1.5rem .75rem; }
+.rights-head p { margin: .25rem 0 0; font-size: .82rem; color: var(--muted); }
+#rights-body { flex: 1; overflow-y: auto; padding: .25rem 1.5rem 1rem; }
+.rights-foot { padding: .9rem 1.5rem 1.25rem; border-top: 1px solid var(--border); }
+.rights-foot .buttons { margin-top: 0; }
+.rights-module { border: 1px solid var(--border); border-radius: 4px; padding: .9rem 1rem 1rem; margin-top: .9rem; }
+.rights-module header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
+.rights-module h3 { font-size: .95rem; }
+.rights-module header span button { background: none; border: 0; padding: .3rem .4rem; font: 600 .78rem var(--font-body); cursor: pointer; color: var(--ink); }
+.rights-module header span button:hover { text-decoration: underline; }
+.rights-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .5rem 1rem; }
+.rights-list label { display: flex; align-items: center; gap: .45rem; font-weight: 400; font-size: .82rem; margin: 0; min-height: 28px; }
+dialog input[type=checkbox] { width: 16px; height: 16px; min-height: 0; accent-color: var(--primary); margin: 0; }
+
+@media (max-width: 720px) { .tabs a, .tabs span { padding: 0 .9rem; } }
+td:nth-child(3) { text-transform: capitalize; }
