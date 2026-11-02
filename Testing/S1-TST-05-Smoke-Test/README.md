@@ -20,10 +20,10 @@ The script prints PASS or FAIL for each check. The exit code is 0 if all checks 
 
 ```bash
 # Mac / Linux
-BASE_URL=http://localhost:3000 TEST_EMAIL=you@test.com TEST_PASSWORD=yourpass node smoke-test.js
+BASE_URL=http://localhost:6543 TEST_EMAIL=you@test.com TEST_PASSWORD=yourpass node smoke-test.js
 
 # Windows (cmd)
-set BASE_URL=http://localhost:3000 && set TEST_EMAIL=you@test.com && set TEST_PASSWORD=yourpass && node smoke-test.js
+set BASE_URL=http://localhost:6543 && set TEST_EMAIL=you@test.com && set TEST_PASSWORD=yourpass && node smoke-test.js
 ```
 
 The password is not typed inside the file.
