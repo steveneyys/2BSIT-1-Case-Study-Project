@@ -2,11 +2,11 @@
 // Run:  node smoke-test.js      (needs Node 18 or newer, no npm install)
 //
 // Set your real details with environment variables, or edit CONFIG below.
-//   Windows (cmd):  set BASE_URL=http://localhost:3000 && set TEST_EMAIL=you@test.com && set TEST_PASSWORD=yourpass && node smoke-test.js
-//   Mac/Linux:      BASE_URL=http://localhost:3000 TEST_EMAIL=you@test.com TEST_PASSWORD=yourpass node smoke-test.js
+//   Windows (cmd):  set BASE_URL=http://localhost:6543 && set TEST_EMAIL=you@test.com && set TEST_PASSWORD=yourpass && node smoke-test.js
+//   Mac/Linux:      BASE_URL=http://localhost:6543 TEST_EMAIL=you@test.com TEST_PASSWORD=yourpass node smoke-test.js
 
 const CONFIG = {
-  baseUrl: process.env.BASE_URL || "http://localhost:3000",
+  baseUrl: process.env.BASE_URL || "http://localhost:6543",
   loginPage: "/login",     // page that shows the login form
   loginApi: "/api/login",  // where the form sends the email and password (POST, JSON)
   mainPage: "/main",       // page shown after a successful login

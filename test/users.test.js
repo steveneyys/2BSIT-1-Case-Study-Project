@@ -88,7 +88,7 @@ test('admin can block, unblock and edit a user', async () => {
   assert.strictEqual((await um.unblock(AD, 5)).status, 200);
   const r = await um.update(AD, 5, { firstName: ' Ann ', lastName: 'Lee', email: 'ANN@x.test' });
   assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.body.user.email, 'ann@x.test');
+  assert.strictEqual(r.body.user.email, 'u5@x.test'); // email is read-only on Edit User
   assert.strictEqual(r.body.user.role, 'user');
 });
 
@@ -134,9 +134,10 @@ test('create: superadmin may pick a role; duplicate email -> 409; bad input -> 4
   assert.strictEqual((await um.create(SA, { firstName: '', email: 'bad' })).status, 400);
 });
 
-test('edit: duplicate email -> 409; unknown or non-numeric id -> 404', async () => {
+test('edit: unknown or non-numeric id -> 404; get one works', async () => {
   const { um } = setup(all);
-  assert.strictEqual((await um.update(SA, 5, { firstName: 'A', lastName: 'B', email: 'u3@x.test' })).status, 409);
+  assert.strictEqual((await um.get(SA, 5)).body.user.email, 'u5@x.test');
+  assert.strictEqual((await um.get(SA, 999)).status, 404);
   assert.strictEqual((await um.block(SA, 999)).status, 404);
   assert.strictEqual((await um.block(SA, 'abc')).status, 404);
 });
@@ -153,7 +154,8 @@ test('approve: only a superadmin can approve; the user can then sign in (status 
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.user.status, 'active');
   assert.strictEqual(state.sent.length, 1);
-  assert.match(state.sent[0].text, /login\.html/);
+  assert.match(state.sent[0].text, /set-password\.html\?token=/);
+  assert.strictEqual(state.tokens[0].purpose, 'first_password');
 });
 
 test('approve: already-active or missing accounts return 409/404', async () => {

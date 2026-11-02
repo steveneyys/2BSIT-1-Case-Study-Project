@@ -64,7 +64,7 @@ test('reset: a link works once, then is rejected (reused token)', async () => {
       return { rows: [] };
     },
   };
-  const db = { tx: async (fn) => fn(client) };
+  const db = { tx: async (fn) => fn(client), query: async () => ({ rows: [] }) };
   const body = { token: 't', password: 'newpass123', confirmPassword: 'newpass123' };
   assert.strictEqual((await setPassword(db, body)).status, 200);
   assert.strictEqual((await setPassword(db, body)).status, 400);

@@ -15,12 +15,29 @@ const { attachUser } = require('./middleware/auth');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 // App factory: takes config and db so tests can inject fakes.
-function createApp({ config, db }) {
+function createApp({ config, db, googleVerifier }) {
   const app = express();
   app.disable('x-powered-by');
   if (config.isProduction) app.set('trust proxy', 1); // needed for secure cookies in DEV-03
 
-  app.use(helmet());
+  // Google's sign-in button (accounts.google.com/gsi) needs these extra allowances; everything else keeps helmet's defaults.
+  const GSI = 'https://accounts.google.com/gsi/';
+  const defaults = helmet.contentSecurityPolicy.getDefaultDirectives();
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...defaults,
+          'script-src': [...defaults['script-src'], 'https://accounts.google.com/gsi/client'],
+          'frame-src': ["'self'", GSI],
+          'connect-src': ["'self'", GSI],
+          'style-src': [...defaults['style-src'], GSI],
+        },
+      },
+      // The Google button opens a popup that must be able to talk back to this page.
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    })
+  );
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(guardPages(db, config)); // server-side check for protected pages, before they are served
@@ -28,7 +45,7 @@ function createApp({ config, db }) {
 
   app.use('/api', attachUser(db, config)); // sets req.user when a valid session cookie is present
   app.use('/api/health', healthRoutes(db));
-  app.use('/api/auth', authRoutes(db, config));
+  app.use('/api/auth', authRoutes(db, config, { googleVerifier }));
   app.use('/api/users', userRoutes(db, config));
   app.use('/api/rights', rightsRoutes(db));
   // Reusable permission checks for later sprints: requireRight(perms, 'RIGHT_CODE') from middleware/permissions.js
