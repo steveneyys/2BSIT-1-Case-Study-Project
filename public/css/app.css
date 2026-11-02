@@ -31,4 +31,13 @@ dialog h2 { margin:0 0 .5rem; font-size:1.2rem; }
 dialog label { display:block; font-size:.85rem; font-weight:600; margin:.8rem 0 .25rem; }
 dialog input, dialog select { width:100%; padding:.6rem .7rem; border:1px solid var(--border); border-radius:8px; font-size:1rem; }
 dialog .err { color:var(--danger); font-size:.8rem; min-height:1em; }
+#rights-dialog { width:min(560px, 94vw); }
+.rights-shortcuts { display:flex; gap:.5rem; margin:.75rem 0; }
+#rights-body { max-height:50vh; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:.5rem .9rem; }
+.rights-module { padding:.6rem 0; border-bottom:1px solid var(--border); }
+.rights-module:last-child { border-bottom:0; }
+.rights-module > label { font-weight:700; display:flex; align-items:center; gap:.5rem; margin:0; }
+.rights-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:.15rem .75rem; margin:.4rem 0 0 1.6rem; }
+.rights-list label { font-weight:400; display:flex; align-items:center; gap:.4rem; margin:0; font-size:.9rem; }
+dialog input[type=checkbox] { width:auto; }
 dialog .buttons { display:flex; justify-content:flex-end; gap:.5rem; margin-top:1.25rem; }
