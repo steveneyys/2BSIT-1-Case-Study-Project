@@ -15,6 +15,12 @@
     <h1>User Management</h1>
     <div class="toolbar">
       <input type="search" id="search" placeholder="Search name or email" aria-label="Search users" />
+      <label class="muted" for="filter">Show
+        <select id="filter">
+          <option value="all">All users</option>
+          <option value="pending">Waiting for approval</option>
+        </select>
+      </label>
       <button class="btn primary" id="add-btn" type="button">Add User</button>
     </div>
     <div id="msg" role="status" aria-live="polite"></div>
@@ -36,7 +42,7 @@
       <input id="lastName" name="lastName" maxlength="50" required />
       <div class="err" data-for="lastName"></div>
       <label for="email">Email</label>
-      <input id="email" name="email" type="email" maxlength="254" required />
+      <input id="email" name="email" type="email" maxlength="100" required />
       <div class="err" data-for="email"></div>
       <div id="role-wrap" hidden>
         <label for="role">Role</label>

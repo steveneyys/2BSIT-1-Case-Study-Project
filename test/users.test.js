@@ -28,9 +28,17 @@ function setup(users) {
     },
     setBlocked: async (_db, id, b) => { const u = state.users.find((x) => x.user_id === id); u.is_blocked = b; return u; },
     createPasswordToken: async (_db, t) => { state.tokens.push(t); },
+    lockActiveSuperadmins: async () => state.users.filter((u) => u.role === 'superadmin' && !u.is_blocked && u.status === 'active'),
+    setApproved: async (_db, id) => {
+      const u = state.users.find((x) => x.user_id === id);
+      if (!u || u.status !== 'pending') return null;
+      u.status = 'active';
+      return u;
+    },
+    setRole: async (_db, id, role) => { const u = state.users.find((x) => x.user_id === id); u.role = role; return u; },
   };
   const mailer = { send: async (m) => { state.sent.push(m); } };
-  return { state, um: createUserManagement({ db: {}, repo, mailer, appUrl: 'http://x.test' }) };
+  return { state, um: createUserManagement({ db: { tx: async (fn) => fn({}) }, repo, mailer, appUrl: 'http://x.test' }) };
 }
 
 const SA = row(1, 'superadmin');
@@ -116,6 +124,7 @@ test('create: admin-made account is a pending-password "user"; link emailed; raw
   const raw = state.sent[0].text.match(/token=([\w-]+)/)[1];
   assert.ok(!JSON.stringify(state.tokens).includes(raw));
   assert.strictEqual(state.tokens.length, 1);
+  assert.strictEqual(state.tokens[0].purpose, 'first_password');
 });
 
 test('create: superadmin may pick a role; duplicate email -> 409; bad input -> 400', async () => {
@@ -130,4 +139,78 @@ test('edit: duplicate email -> 409; unknown or non-numeric id -> 404', async () 
   assert.strictEqual((await um.update(SA, 5, { firstName: 'A', lastName: 'B', email: 'u3@x.test' })).status, 409);
   assert.strictEqual((await um.block(SA, 999)).status, 404);
   assert.strictEqual((await um.block(SA, 'abc')).status, 404);
+});
+
+const PENDING = row(6, 'user', { status: 'pending' });
+const tick = () => new Promise((r) => setImmediate(r));
+
+test('approve: only a superadmin can approve; the user can then sign in (status active) and is emailed', async () => {
+  const { um, state } = setup([...all, PENDING]);
+  assert.strictEqual((await um.approve(AD, 6)).status, 403);
+  assert.strictEqual(state.users.find((u) => u.user_id === 6).status, 'pending');
+  const r = await um.approve(SA, 6);
+  await tick();
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.user.status, 'active');
+  assert.strictEqual(state.sent.length, 1);
+  assert.match(state.sent[0].text, /login\.html/);
+});
+
+test('approve: already-active or missing accounts return 409/404', async () => {
+  const { um } = setup([...all, PENDING]);
+  assert.strictEqual((await um.approve(SA, 5)).status, 409);
+  assert.strictEqual((await um.approve(SA, 999)).status, 404);
+});
+
+test('make-admin / remove-admin: superadmin only, approved users only, never yourself', async () => {
+  const { um, state } = setup([...all, PENDING]);
+  assert.strictEqual((await um.makeAdmin(AD, 5)).status, 403);
+  assert.strictEqual((await um.makeAdmin(SA, 6)).status, 400); // still pending
+  const made = await um.makeAdmin(SA, 5);
+  assert.strictEqual(made.status, 200);
+  assert.strictEqual(state.users.find((u) => u.user_id === 5).role, 'admin');
+  assert.strictEqual((await um.makeAdmin(SA, 5)).status, 409); // already admin
+  assert.strictEqual((await um.removeAdmin(AD, 5)).status, 403);
+  assert.strictEqual((await um.removeAdmin(SA, 5)).status, 200);
+  assert.strictEqual(state.users.find((u) => u.user_id === 5).role, 'user');
+  assert.strictEqual((await um.makeAdmin(SA, 1)).status, 400); // self
+});
+
+test('editing a pending user cannot promote them past "user"', async () => {
+  const { um } = setup([...all, PENDING]);
+  const r = await um.update(SA, 6, { firstName: 'A', lastName: 'B', email: 'p@x.test', role: 'admin' });
+  assert.strictEqual(r.status, 400);
+});
+
+test('list: only superadmins are offered Approve / Make admin / Remove admin', async () => {
+  const { um } = setup([...all, PENDING]);
+  const sa = (await um.list(SA, '')).body.users;
+  assert.strictEqual(sa.find((u) => u.id === 6).canApprove, true);
+  assert.strictEqual(sa.find((u) => u.id === 5).canMakeAdmin, true);
+  assert.strictEqual(sa.find((u) => u.id === 6).canMakeAdmin, false);
+  assert.strictEqual(sa.find((u) => u.id === 4).canRemoveAdmin, true);
+  const ad = (await um.list(AD, '')).body.users;
+  assert.ok(ad.every((u) => !u.canApprove && !u.canMakeAdmin && !u.canRemoveAdmin));
+});
+
+test('last superadmin: cannot be blocked or demoted (race: the other superadmin was already disabled)', async () => {
+  // SA2 (still holding an old session) tries to disable SA, but SA2 itself was blocked a moment ago.
+  const { um, state } = setup([SA, { ...SA2, is_blocked: true }, AD, U1]);
+  assert.strictEqual((await um.block(SA2, 1)).status, 409);
+  assert.strictEqual((await um.update(SA2, 1, { firstName: 'A', lastName: 'B', email: 'a@b.test', role: 'user' })).status, 409);
+  assert.strictEqual(state.users[0].is_blocked, false);
+  assert.strictEqual(state.users[0].role, 'superadmin');
+});
+
+test('stale session: a superadmin who was just blocked cannot disable another superadmin', async () => {
+  const { um, state } = setup([SA, { ...SA2, is_blocked: true }, row(8, 'superadmin'), AD]);
+  const r = await um.block(SA2, 8);
+  assert.strictEqual(r.status, 403);
+  assert.strictEqual(state.users.find((u) => u.user_id === 8).is_blocked, false);
+});
+
+test('guard does not get in the way when another live superadmin exists', async () => {
+  const { um } = setup(all);
+  assert.strictEqual((await um.block(SA, 2)).status, 200);
+  assert.strictEqual((await um.update(SA, 2, { firstName: 'A', lastName: 'B', email: 'a@b.test', role: 'admin' })).status, 200);
 });

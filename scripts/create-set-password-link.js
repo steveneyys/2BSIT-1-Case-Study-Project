@@ -16,10 +16,11 @@ const { newRawToken, hashToken, SET_PASSWORD_TTL_MS } = require('../src/services
     const user = await userRepo.findByEmail(db, email);
     if (!user) { console.error(`No user with email ${email}`); process.exitCode = 1; return; }
     const raw = newRawToken();
-    await userRepo.createPasswordToken(db, {
+        await userRepo.createPasswordToken(db, {
       userId: user.user_id,
       tokenHash: hashToken(raw),
       expiresAt: new Date(Date.now() + SET_PASSWORD_TTL_MS),
+      purpose: 'first_password',
     });
     console.log(`Set-password link (valid 24h, single use):\nhttp://localhost:${config.port}/set-password.html?token=${raw}`);
   } finally {

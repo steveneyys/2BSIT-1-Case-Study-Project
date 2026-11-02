@@ -12,6 +12,7 @@ main.page { max-width:1000px; margin:1.5rem auto; padding:0 1rem; }
 .btn:disabled { opacity:.5; cursor:not-allowed; }
 .table-wrap { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgb(0 0 0 / .06); overflow-x:auto; }
 table { width:100%; border-collapse:collapse; }
+.toolbar select { padding:.45rem; border:1px solid var(--border); border-radius:8px; margin-left:.4rem; }
 th, td { text-align:left; padding:.7rem 1rem; border-bottom:1px solid var(--border); font-size:.92rem; white-space:nowrap; }
 th { background:#f1f5f9; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
 tr:last-child td { border-bottom:0; }
@@ -19,7 +20,7 @@ tr:last-child td { border-bottom:0; }
 .badge.active { background:#d1fae5; color:#065f46; }
 .badge.pending { background:#fef3c7; color:#92400e; }
 .badge.blocked { background:#fee2e2; color:#991b1b; }
-.actions { display:flex; gap:.4rem; }
+.actions { display:flex; gap:.4rem; flex-wrap:wrap; }
 .muted { color:var(--muted); }
 #msg { margin:.75rem 0; padding:.6rem .8rem; border-radius:8px; display:none; font-size:.9rem; }
 #msg.bad { display:block; background:#fef2f2; color:#991b1b; }

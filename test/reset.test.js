@@ -13,7 +13,7 @@ function makeDb(user) {
     calls,
     query: async (sql, params) => {
       calls.push({ sql, params });
-      if (/FROM app_user WHERE lower\(email\)/.test(sql)) return { rows: user && params[0] === user.email ? [user] : [] };
+      if (/FROM app_user_active WHERE lower\(email\)/.test(sql)) return { rows: user && params[0] === user.email ? [user] : [] };
       return { rows: [] };
     },
   };
@@ -31,8 +31,9 @@ test('forgot: active user gets a link; only the token hash is stored; old links 
   const raw = d.sent[0].text.match(/token=([\w-]+)/)[1];
   const insert = db.calls.find((c) => /INSERT INTO password_token/.test(c.sql));
   assert.strictEqual(insert.params[1], hashToken(raw));
+  assert.strictEqual(insert.params[2], 'reset');
   assert.ok(!db.calls.some((c) => c.params.includes(raw)), 'raw token must never reach the DB');
-  assert.ok(db.calls.findIndex((c) => /SET used = TRUE WHERE user_id/.test(c.sql)) < db.calls.indexOf(insert));
+  assert.ok(db.calls.findIndex((c) => /SET used_at = now\(\) WHERE user_id/.test(c.sql)) < db.calls.indexOf(insert));
   assert.match(d.sent[0].text, /http:\/\/x\.test\/reset-password\.html\?token=/);
 });
 

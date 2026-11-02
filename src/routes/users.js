@@ -27,6 +27,9 @@ module.exports = function userRoutes(db, config) {
   router.patch('/:id', handle((req) => um.update(req.user, req.params.id, req.body)));
   router.post('/:id/block', handle((req) => um.block(req.user, req.params.id)));
   router.post('/:id/unblock', handle((req) => um.unblock(req.user, req.params.id)));
+  router.post('/:id/approve', handle((req) => um.approve(req.user, req.params.id)));
+  router.post('/:id/make-admin', handle((req) => um.makeAdmin(req.user, req.params.id)));
+  router.post('/:id/remove-admin', handle((req) => um.removeAdmin(req.user, req.params.id)));
 
   return router;
 };

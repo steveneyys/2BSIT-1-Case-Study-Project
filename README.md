@@ -30,3 +30,5 @@ Never commit `.env`. Always use parameterized queries (`$1, $2`), never string-b
 - Protect routes with `requireAuth` / `requireRole('admin','superadmin')` from `src/middleware/auth.js`
 - `POST /api/auth/forgot-password` `{email}` -> always 200 with the same message; emails a 1-hour single-use link to `/reset-password.html?token=...`. The link is submitted to `/api/auth/set-password`. Without `SMTP_HOST` the email is printed in the server console.
 - User Management (admin/superadmin only; plain users get 403): `GET /api/users?q=`, `POST /api/users`, `PATCH /api/users/:id`, `POST /api/users/:id/block|unblock`. Admins see users and admins but never superadmins, and manage users only. UI: `/users.html`.
+
+- Superadmin only: `POST /api/users/:id/approve`, `/make-admin`, `/remove-admin`. The last live superadmin can never be blocked or demoted (409).

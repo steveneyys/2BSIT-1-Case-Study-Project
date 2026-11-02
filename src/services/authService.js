@@ -63,10 +63,11 @@ async function requestPasswordReset(db, { email }, { mailer, appUrl }) {
   if (user && user.status === 'active' && !user.is_blocked) {
     const raw = newRawToken();
     await userRepo.invalidateUserTokens(db, user.user_id);
-    await userRepo.createPasswordToken(db, {
+        await userRepo.createPasswordToken(db, {
       userId: user.user_id,
       tokenHash: hashToken(raw),
       expiresAt: new Date(Date.now() + RESET_TTL_MS),
+      purpose: 'reset',
     });
     // Not awaited: response time must not reveal whether an email was sent.
     mailer
