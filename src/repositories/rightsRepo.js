@@ -13,6 +13,22 @@ async function listCatalog(db) {
   return rows;
 }
 
+async function listModules(db) {
+  const { rows } = await db.query('SELECT module_code, module_name FROM module ORDER BY sort_order, module_code');
+  return rows;
+}
+
+// A module counts as "on" for a user when at least one of its rights is ticked (see S1-DEV-07).
+async function listUserModuleCodes(db, userId) {
+  const { rows } = await db.query(
+    `SELECT DISTINCT r.module_code
+     FROM user_permission_active up JOIN right_catalog r ON r.right_code = up.right_code
+     WHERE up.user_id = $1`,
+    [userId]
+  );
+  return rows.map((r) => r.module_code);
+}
+
 async function listUserRights(db, userId) {
   const { rows } = await db.query('SELECT right_code FROM user_permission_active WHERE user_id = $1', [userId]);
   return rows.map((r) => r.right_code);
@@ -44,4 +60,4 @@ async function revokeRights(client, userId, rightCodes) {
   );
 }
 
-module.exports = { listCatalog, listUserRights, lockUser, grantRights, revokeRights };
+module.exports = { listModules, listUserModuleCodes, listCatalog, listUserRights, lockUser, grantRights, revokeRights };

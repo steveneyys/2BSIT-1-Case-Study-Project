@@ -118,3 +118,13 @@ test('SQL: empty grant/revoke lists make no query; reads use the active view; us
   assert.match(db.calls[0].sql, /user_permission_active/);
   assert.match(db.calls[1].sql, /FOR UPDATE/);
 });
+
+test('SQL: menu queries use the active view and the catalogue join', async () => {
+  const db = recorder();
+  await rightsRepoSql.listModules(db);
+  await rightsRepoSql.listUserModuleCodes(db, 5);
+  assert.match(db.calls[0].sql, /FROM module ORDER BY sort_order/);
+  assert.match(db.calls[1].sql, /user_permission_active/);
+  assert.match(db.calls[1].sql, /JOIN right_catalog/);
+  assert.deepStrictEqual(db.calls[1].params, [5]);
+});
