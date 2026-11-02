@@ -26,3 +26,6 @@ Rights catalogue: 36 rights + 5 module View controls = 41 checkboxes.
 
 ## Related tasks
 S1-DEV-02 to S1-DEV-08, S1-DBA-05, S1-TST-02 to S1-TST-04
+
+
+S1-UIX-4
