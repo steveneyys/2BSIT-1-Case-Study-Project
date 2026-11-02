@@ -3,26 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Home - Hope, Inc. ERP</title>
+  <title>Dashboard - Hope, Inc. ERP</title>
+  <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/app.css" />
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar" aria-label="Main menu">
-      <div class="brand">Hope, Inc. ERP</div>
-      <nav id="side-nav"><a href="/home.html" class="active">Home</a></nav>
-      <div class="side-footer">
-        <div id="who" class="muted"></div>
-        <button id="logout" class="btn" type="button">Sign out</button>
-      </div>
-    </aside>
-    <main class="content">
-      <h1 id="hello">Loading...</h1>
-      <p class="muted" id="meta"></p>
-      <div id="msg" role="status"></div>
-      <section class="tiles" id="tiles" aria-label="Modules"></section>
-    </main>
-  </div>
+  <header class="app-top">
+    <a class="brand" href="/home.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>hope.</a>
+    <div id="who" class="who"></div>
+    <button id="logout" class="link-btn" type="button">Sign out &#8599;</button>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Main menu"></nav>
+  <main class="page">
+    <h1 id="hello">Dashboard</h1>
+    <p class="lead muted" id="meta">Loading...</p>
+    <div id="msg" role="status"></div>
+    <section class="tiles" id="tiles" aria-label="Modules"></section>
+    <section class="card" id="admin-card" hidden style="margin-top:1rem">
+      <h2>Account administration</h2>
+      <p class="muted" style="margin:0 0 1rem;font-size:.88rem">Review pending registrations and manage account designation.</p>
+      <div class="quick" id="admin-links"></div>
+    </section>
+  </main>
+  <script src="/js/shell.js"></script>
   <script src="/js/home.js"></script>
 </body>
 </html>
