@@ -1,9 +1,22 @@
 'use strict';
 
 const express = require('express');
+const userRepo = require('../repositories/userRepo');
 const { registerUser } = require('../services/registration');
-const { login, setPassword, passwordTokenStatus, requestPasswordReset, publicUser } = require('../services/authService');
-const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, cookieOptions } = require('../services/session');
+const {
+  login,
+  setPassword,
+  passwordTokenStatus,
+  requestPasswordReset,
+  publicUser,
+} = require('../services/authService');
+const {
+  COOKIE_NAME,
+  SESSION_TTL_MS,
+  createSessionToken,
+  cookieOptions,
+} = require('../services/session');
+const { hashToken } = require('../services/passwordToken');
 const { requireAuth } = require('../middleware/auth');
 const { createMailer } = require('../services/mailer');
 const { createGoogleVerifier, googleSignIn } = require('../services/googleAuth');
@@ -12,17 +25,45 @@ const { rateLimit } = require('../middleware/rateLimit');
 module.exports = function authRoutes(db, config, { googleVerifier } = {}) {
   const verifyGoogle = googleVerifier || createGoogleVerifier(config.googleClientId);
   const router = express.Router();
+  const mailer = createMailer(config);
+
   const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
   const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
-  const mailer = createMailer(config);
   const forgotLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
   const statusLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
   const tokenLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+  const verifyEmailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
   router.post('/register', registerLimiter, async (req, res, next) => {
     try {
-      const { status, body } = await registerUser(db, req.body);
+      const { status, body } = await registerUser(db, req.body, {
+        mailer,
+        appUrl: config.appUrl,
+      });
+
       res.status(status).json(body);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/verify-email', verifyEmailLimiter, async (req, res, next) => {
+    try {
+      const rawToken = String(req.query.token ?? '');
+
+      if (!rawToken) {
+        return res.redirect('/register.html?verified=0');
+      }
+
+      const userId = await db.tx((client) =>
+        userRepo.consumeEmailVerificationToken(client, hashToken(rawToken))
+      );
+
+      if (!userId) {
+        return res.redirect('/register.html?verified=0');
+      }
+
+      return res.redirect('/register.html?verified=1');
     } catch (err) {
       next(err);
     }
@@ -31,28 +72,52 @@ module.exports = function authRoutes(db, config, { googleVerifier } = {}) {
   router.post('/login', loginLimiter, async (req, res, next) => {
     try {
       const { status, body, user } = await login(db, req.body || {});
+
       if (user) {
-        // "Remember me" keeps the session longer; otherwise the normal 8-hour session applies.
-        const ttl = req.body && req.body.remember === true ? (config.rememberDays || 7) * 24 * 60 * 60 * 1000 : SESSION_TTL_MS;
-        const token = createSessionToken(user.user_id, config.sessionSecret, Date.now(), ttl);
-        res.cookie(COOKIE_NAME, token, { ...cookieOptions(config), maxAge: ttl });
+        const ttl =
+          req.body && req.body.remember === true
+            ? (config.rememberDays || 7) * 24 * 60 * 60 * 1000
+            : SESSION_TTL_MS;
+
+        const token = createSessionToken(
+          user.user_id,
+          config.sessionSecret,
+          Date.now(),
+          ttl
+        );
+
+        res.cookie(COOKIE_NAME, token, {
+          ...cookieOptions(config),
+          maxAge: ttl,
+        });
       }
+
       res.status(status).json(body);
     } catch (err) {
       next(err);
     }
   });
 
-  // The page asks which client ID to use; null means Google sign-in is not set up, so the button stays hidden.
-  router.get('/google-config', (_req, res) => res.json({ clientId: config.googleClientId || null }));
+  router.get('/google-config', (_req, res) => {
+    res.json({ clientId: config.googleClientId || null });
+  });
 
   router.post('/google', loginLimiter, async (req, res, next) => {
     try {
-      const { status, body, user } = await googleSignIn(db, verifyGoogle, req.body && req.body.credential);
+      const { status, body, user } = await googleSignIn(
+        db,
+        verifyGoogle,
+        req.body && req.body.credential
+      );
+
       if (user) {
         const token = createSessionToken(user.user_id, config.sessionSecret);
-        res.cookie(COOKIE_NAME, token, { ...cookieOptions(config), maxAge: SESSION_TTL_MS });
+        res.cookie(COOKIE_NAME, token, {
+          ...cookieOptions(config),
+          maxAge: SESSION_TTL_MS,
+        });
       }
+
       res.status(status).json(body);
     } catch (err) {
       next(err);
@@ -64,12 +129,15 @@ module.exports = function authRoutes(db, config, { googleVerifier } = {}) {
     res.json({ message: 'Signed out.' });
   });
 
-  router.get('/me', requireAuth, (req, res) => res.json({ user: publicUser(req.user) }));
+  router.get('/me', requireAuth, (req, res) => {
+    res.json({ user: publicUser(req.user) });
+  });
 
-  // Which screen should the link open: the form, "expired" or "already used"?
   router.get('/password-token', statusLimiter, async (req, res, next) => {
     try {
-      res.json({ status: await passwordTokenStatus(db, String(req.query.token ?? '')) });
+      res.json({
+        status: await passwordTokenStatus(db, String(req.query.token ?? '')),
+      });
     } catch (err) {
       next(err);
     }
@@ -86,7 +154,12 @@ module.exports = function authRoutes(db, config, { googleVerifier } = {}) {
 
   router.post('/forgot-password', forgotLimiter, async (req, res, next) => {
     try {
-      const { status, body } = await requestPasswordReset(db, req.body || {}, { mailer, appUrl: config.appUrl });
+      const { status, body } = await requestPasswordReset(
+        db,
+        req.body || {},
+        { mailer, appUrl: config.appUrl }
+      );
+
       res.status(status).json(body);
     } catch (err) {
       next(err);
