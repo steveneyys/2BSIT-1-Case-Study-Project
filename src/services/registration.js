@@ -53,8 +53,10 @@ async function registerUser(db, body, { mailer, appUrl } = {}) {
     expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
   });
 
-  mailer
-    .send({
+    try {
+    console.log('[mail] sending verification email');
+
+    await mailer.send({
       to: user.email,
       subject: 'Confirm your Hope ERP email address',
       text:
@@ -63,9 +65,13 @@ async function registerUser(db, body, { mailer, appUrl } = {}) {
         'It is valid for 24 hours and can only be used once:\n' +
         `${appUrl}/api/auth/verify-email?token=${rawToken}\n\n` +
         'Your account will remain Pending until a Superadmin approves it.',
-    })
-    .catch((err) => console.error('[mail] failed to send verification email:', err.message));
+    });
 
+    console.log('[mail] verification email accepted by SMTP');
+  } catch (err) {
+    console.error('[mail] failed to send verification email:', err.message);
+  }
+  
   return {
     status: 201,
     body: {
