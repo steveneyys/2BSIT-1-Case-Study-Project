@@ -14,8 +14,8 @@ This folder contains the customer wireframes for  the HOPE, Inc. ERP system. The
 The wireframes follow the HOPE ERP workflow and use the existing role permissions. Actions and fields should match the customer-management requirements in the student guide.
 
 ## Files
-- `S2-UIX-01-Customer-Wireframes.pdf` — complete wireframe export
-- `preview.png` — quick preview
+-Customer-Wireframes.png` — complete wireframe export
+
 
 ## Figma
 [Open S2-UIX-01 — Customer Wireframes](https://www.figma.com/design/HiCl2hqGS1rNeTSvNMc3Fm/Untitled?node-id=18-11183)
