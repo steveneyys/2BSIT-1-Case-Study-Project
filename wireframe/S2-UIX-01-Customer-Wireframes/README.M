@@ -22,3 +22,4 @@ The wireframes follow the HOPE ERP workflow and use the existing role permission
 
 ## Status
 Wireframes prepared for review. Hi-fi styling and developer handoff are documented separately.
+
