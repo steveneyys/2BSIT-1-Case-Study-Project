@@ -1,3 +1,16 @@
+<<<<<<< HEAD
+/* Auth screens (S1-UIX-02) */
+body.auth { min-height: 100vh; display: flex; flex-direction: column; }
+.auth-top { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem clamp(1rem, 5vw, 4rem); }
+.auth-top nav { display: flex; align-items: center; gap: 1.25rem; font-size: .88rem; }
+.auth-top nav a { text-decoration: none; color: var(--muted); }
+.auth-top nav a.strong { color: var(--ink); font-weight: 600; }
+.auth-top nav .btn { min-height: 38px; color: var(--ink); padding: 0 .9rem; }
+.auth-main { flex: 1; display: grid; place-items: center; padding: 2rem 1rem 3rem; }
+.auth-card { width: 100%; max-width: 400px; }
+.eyebrow { font-size: .68rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .6rem; }
+.auth-card h1 { font-size: 1.7rem; letter-spacing: -.02em; line-height: 1.2; }
+=======
 /* Landing + auth screens. Loaded only by index/login/register/forgot/reset/set-password.
    Signed-in pages (home, users) use app.css and are not affected. */
 
@@ -38,11 +51,22 @@ body.motion-off .bg i { animation: none; }
 .auth-card { width: 100%; max-width: 420px; }
 .eyebrow { font-size: .68rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .6rem; }
 .auth-card h1 { font-size: 1.8rem; letter-spacing: -.04em; line-height: 1.15; }
+>>>>>>> origin
 .auth-card .sub { color: var(--muted); font-size: 1rem; margin: .5rem 0 0; }
 .auth-card form { margin-top: .75rem; }
 .auth-card .btn.primary { margin-top: 1.25rem; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 .aux { display: flex; justify-content: flex-end; margin-top: .75rem; font-size: .85rem; font-weight: 600; }
+<<<<<<< HEAD
+.foot { text-align: center; margin-top: 1.25rem; font-size: .85rem; color: var(--muted); }
+.foot a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.foot a:hover, .aux a:hover { text-decoration: underline; }
+.aux a { color: var(--ink); text-decoration: none; }
+.done[hidden] { display: none; }
+.done .btn { margin-top: 1.5rem; }
+.auth-foot { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1.25rem clamp(1rem, 5vw, 4rem); font-size: .72rem; color: var(--muted); }
+@media (max-width: 560px) { .auth-top nav a:not(.btn):not(.strong) { display: none; } .row { grid-template-columns: 1fr; } }
+=======
 .aux a { color: var(--ink); text-decoration: none; }
 .foot { text-align: center; margin-top: 1.25rem; font-size: .85rem; color: var(--muted); }
 .foot a { color: var(--ink); font-weight: 600; text-decoration: none; }
@@ -110,3 +134,4 @@ body.landing-page .auth-foot { background: #16191f; color: #d0d4dd; max-width: n
 .google .or { display: flex; align-items: center; gap: .75rem; color: var(--muted); font-size: .8rem; margin-bottom: 1rem; }
 .google .or::before, .google .or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 #google-btn { display: flex; justify-content: center; min-height: 44px; }
+>>>>>>> origin
