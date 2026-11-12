@@ -109,3 +109,65 @@ test('menu: the Product tile links to the product page', () => {
   const m = buildMenu(user(5, 'user'), modules, ['PRODUCT']);
   assert.deepStrictEqual(m.modules.map((x) => [x.code, x.href]), [['PRODUCT', '/products.html']]);
 });
+
+// ---- S2-DEV-05: create / edit ----
+const { validateProduct } = require('../src/validators/product');
+
+test('validateProduct: required fields, code format, limits, unit list', () => {
+  assert.deepStrictEqual(Object.keys(validateProduct({}, { needCode: true }).errors).sort(), ['code', 'description', 'unit']);
+  assert.ok(validateProduct({ code: 'A1', description: 'x', unit: 'ea' }, { needCode: true }).errors.code);
+  assert.ok(validateProduct({ code: 'AD0001', description: 'x'.repeat(31), unit: 'ea' }, { needCode: true }).errors.description);
+  assert.ok(validateProduct({ code: 'AD0001', description: '   ', unit: 'ea' }, { needCode: true }).errors.description);
+  assert.ok(validateProduct({ code: 'AD0001', description: 'x', unit: 'box' }, { needCode: true }).errors.unit);
+  const ok = validateProduct({ code: ' ad0001 ', description: ' SSD ', unit: 'EA' }, { needCode: true });
+  assert.deepStrictEqual([ok.errors, ok.value], [{}, { code: 'AD0001', description: 'SSD', unit: 'ea' }]);
+  assert.deepStrictEqual(validateProduct({ code: 'ZZ9999', description: 'x', unit: 'pc' }).value, { description: 'x', unit: 'pc' }); // edit ignores code
+});
+
+let auditSeen;
+const fakeDb = () => ({ txAs: async (name, fn) => { auditSeen = name; return fn({}); } });
+
+test('create: 201 on success and audit name is the actor; taken / deleted-code conflicts give 409', async () => {
+  const db = fakeDb();
+  let existing = null;
+  const repoFake = { findAnyProduct: async () => existing, insertProduct: async (_c, v) => ({ prodcode: v.code, description: v.description, unit: v.unit }) };
+  const svc = createProducts({ db, repo: repoFake, perms: perms([]) });
+  const body = { code: 'ad0010', description: 'Cable', unit: 'mtr' };
+  const r = await svc.create(user(5, 'user'), body);
+  assert.strictEqual(r.status, 201);
+  assert.strictEqual(r.body.product.code, 'AD0010');
+  assert.strictEqual(auditSeen, 'u5@x.test');
+  existing = { is_deleted: false };
+  assert.match((await svc.create(user(5, 'user'), body)).body.errors.code, /already in use/);
+  existing = { is_deleted: true };
+  const d = await svc.create(user(5, 'user'), body);
+  assert.strictEqual(d.status, 409);
+  assert.match(d.body.errors.code, /deleted product/);
+  assert.strictEqual((await svc.create(user(5, 'user'), {})).status, 400);
+});
+
+test('create: unique violation from a simultaneous add becomes 409', async () => {
+  const repoFake = { findAnyProduct: async () => null, insertProduct: async () => { throw Object.assign(new Error('dup'), { code: '23505' }); } };
+  const r = await createProducts({ db: fakeDb(), repo: repoFake, perms: perms([]) }).create(user(5, 'user'), { code: 'AD0010', description: 'x', unit: 'pc' });
+  assert.strictEqual(r.status, 409);
+});
+
+test('update: 404 for bad/missing/deleted code, 200 otherwise, code in body ignored', async () => {
+  let args;
+  const repoFake = { updateProduct: async (_c, code, v) => { args = [code, v]; return code === 'AD0001' ? { prodcode: code, ...v } : null; } };
+  const svc = createProducts({ db: fakeDb(), repo: repoFake, perms: perms([]) });
+  assert.strictEqual((await svc.update(user(5, 'user'), 'bad', { description: 'x', unit: 'pc' })).status, 404);
+  assert.strictEqual((await svc.update(user(5, 'user'), 'AD0002', { description: 'x', unit: 'pc' })).status, 404);
+  const r = await svc.update(user(5, 'user'), 'AD0001', { code: 'ZZ0000', description: ' New ', unit: 'PC' });
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(args, ['AD0001', { description: 'New', unit: 'pc' }]);
+  assert.strictEqual((await svc.update(user(5, 'user'), 'AD0001', { description: '', unit: 'pc' })).status, 400);
+});
+
+test('SQL: update only touches live rows; insert is parameterized', async () => {
+  const db = recorder([{ prodcode: 'AD0001' }]);
+  await repo.updateProduct(db, 'AD0001', { description: 'x', unit: 'pc' });
+  assert.match(db.calls[0].sql, /WHERE prodcode = \$1 AND NOT is_deleted/);
+  await repo.insertProduct(db, { code: 'AD0002', description: 'x', unit: 'pc' });
+  assert.deepStrictEqual(db.calls[1].params, ['AD0002', 'x', 'pc']);
+});
