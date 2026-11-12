@@ -15,10 +15,10 @@ const perms = (rights) => createPermissions({ db: {}, repo: { listUserRights: as
 const recorder = (rows = []) => { const calls = []; return { calls, query: async (sql, params) => { calls.push({ sql, params }); return { rows }; } }; };
 
 test('normalizeQuery: defaults, trimming, case-insensitive unit, bounded paging', () => {
-  assert.deepStrictEqual(normalizeQuery({}), { search: '', unit: null, sort: 'description', dir: 'asc', pageSize: 25, page: 1 });
+  assert.deepStrictEqual(normalizeQuery({}), { search: '', unit: null, status: 'active', sort: 'description', dir: 'asc', pageSize: 25, page: 1 });
   assert.deepStrictEqual(
     normalizeQuery({ search: '  SSD ', unit: 'EA', sort: 'price', dir: 'desc', pageSize: '50', page: '2' }),
-    { search: 'SSD', unit: 'ea', sort: 'price', dir: 'desc', pageSize: 50, page: 2 }
+    { search: 'SSD', unit: 'ea', status: 'active', sort: 'price', dir: 'desc', pageSize: 50, page: 2 }
   );
 });
 
@@ -60,11 +60,11 @@ test('list: maps rows (trims the description, price as a number, no price -> nul
   assert.deepStrictEqual(r.body.products[0], { code: 'AD0001', description: 'WD Ultra 1TB', unit: 'ea', price: 1250.5, priceDate: '2026-10-01' });
   assert.deepStrictEqual(r.body.products[1], { code: 'AD0009', description: 'New item', unit: 'pc', price: null, priceDate: null });
   assert.deepStrictEqual([r.body.total, r.body.pages, svc.last.limit, svc.last.offset], [41, 5, 10, 20]);
-  assert.deepStrictEqual(r.body.can, { add: false, edit: true, delete: false, addPrice: true, editPrice: false, deletePrice: false });
+  assert.deepStrictEqual(r.body.can, { add: false, edit: true, delete: false, addPrice: true, editPrice: false, deletePrice: false, restore: false, seeDeleted: false });
 });
 
 test('list: empty result is page 1 of 1; admins can do everything', async () => {
-  const r = await createProducts({ db: {}, repo: { listProducts: async () => [] }, perms: perms([]) }).list(user(1, 'admin'), {});
+  const r = await createProducts({ db: {}, repo: { listProducts: async () => [], countProducts: async () => ({ active: 0, deleted: 0, all: 0 }) }, perms: perms([]) }).list(user(1, 'admin'), {});
   assert.deepStrictEqual([r.body.total, r.body.pages, r.body.products.length], [0, 1, 0]);
   assert.ok(Object.values(r.body.can).every(Boolean));
 });
@@ -170,4 +170,92 @@ test('SQL: update only touches live rows; insert is parameterized', async () => 
   assert.match(db.calls[0].sql, /WHERE prodcode = \$1 AND NOT is_deleted/);
   await repo.insertProduct(db, { code: 'AD0002', description: 'x', unit: 'pc' });
   assert.deepStrictEqual(db.calls[1].params, ['AD0002', 'x', 'pc']);
+});
+
+// ---- S2-DEV-06: soft delete / restore ----
+const admin = () => user(1, 'admin');
+
+test('list: only Admins can see deleted products; others are forced to Active', async () => {
+  const seen = [];
+  const repoFake = { listProducts: async (_d, a) => { seen.push(a.scope); return []; }, countProducts: async () => ({ active: 3, deleted: 1, all: 4 }) };
+  const svc = createProducts({ db: {}, repo: repoFake, perms: perms(['PROD_DELETE']) });
+  const u = await svc.list(user(5, 'user'), { status: 'deleted' });
+  const a = await svc.list(admin(), { status: 'deleted' });
+  assert.deepStrictEqual(seen, ['active', 'deleted']);
+  assert.strictEqual(u.body.counts, undefined);
+  assert.deepStrictEqual(a.body.counts, { active: 3, deleted: 1, all: 4 });
+  assert.deepStrictEqual([u.body.can.restore, a.body.can.restore, u.body.can.delete], [false, true, true]);
+});
+
+test('list: admin rows carry Status and Stamp, others do not', async () => {
+  const rows = [{ prodcode: 'AD0001', description: 'x', unit: 'ea', is_deleted: true, stamp: 'DELETE ana 2026-11-12', total: '1' }];
+  const svc = createProducts({ db: {}, repo: { listProducts: async () => rows, countProducts: async () => ({ active: 0, deleted: 1, all: 1 }) }, perms: perms([]) });
+  const a = (await svc.list(admin(), { status: 'all' })).body.products[0];
+  const u = (await svc.list(user(5, 'user'), {})).body.products[0];
+  assert.deepStrictEqual([a.deleted, a.status, a.stamp], [true, 'Inactive', 'DELETE ana 2026-11-12']);
+  assert.strictEqual(u.status, undefined);
+  assert.strictEqual(u.stamp, undefined);
+});
+
+test('remove: blocked with a friendly 409 while prices or sale lines exist; nothing is deleted', async () => {
+  let deleted = false;
+  const repoFake = {
+    findProduct: async () => ({ prodcode: 'AD0001', description: 'Mouse', unit: 'ea' }),
+    countActiveChildren: async () => ({ prices: 2, lines: 1 }),
+    softDeleteProduct: async () => { deleted = true; return {}; },
+  };
+  const r = await createProducts({ db: fakeDb(), repo: repoFake, perms: perms([]) }).remove(user(5, 'user'), 'AD0001');
+  assert.strictEqual(r.status, 409);
+  assert.match(r.body.error, /2 prices and 1 sale line/);
+  assert.strictEqual(deleted, false);
+});
+
+test('remove: 200 when clear, audit name is the actor; 404 for bad, missing or already deleted', async () => {
+  const repoFake = {
+    findProduct: async (_c, code) => (code === 'AD0001' ? { prodcode: code, description: 'Mouse', unit: 'ea' } : null),
+    countActiveChildren: async () => ({ prices: 0, lines: 0 }),
+    softDeleteProduct: async (_c, code) => ({ prodcode: code, description: 'Mouse', unit: 'ea' }),
+  };
+  const svc = createProducts({ db: fakeDb(), repo: repoFake, perms: perms([]) });
+  assert.strictEqual((await svc.remove(user(5, 'user'), 'AD0001')).status, 200);
+  assert.strictEqual(auditSeen, 'u5@x.test');
+  assert.strictEqual((await svc.remove(user(5, 'user'), 'AD0002')).status, 404);
+  assert.strictEqual((await svc.remove(user(5, 'user'), 'nope')).status, 404);
+});
+
+test('remove: the database trigger is the last guard if a price appears in between', async () => {
+  const repoFake = {
+    findProduct: async () => ({ prodcode: 'AD0001', description: 'Mouse', unit: 'ea' }),
+    countActiveChildren: async () => ({ prices: 0, lines: 0 }),
+    softDeleteProduct: async () => { throw new Error('Cannot delete product row: price history row(s) still exist.'); },
+  };
+  const r = await createProducts({ db: fakeDb(), repo: repoFake, perms: perms([]) }).remove(user(5, 'user'), 'AD0001');
+  assert.strictEqual(r.status, 409);
+});
+
+test('restore: Admin only; 404 when the product is not deleted', async () => {
+  const repoFake = { restoreProduct: async (_c, code) => (code === 'AD0001' ? { prodcode: code, description: 'Mouse', unit: 'ea' } : null) };
+  const svc = createProducts({ db: fakeDb(), repo: repoFake, perms: perms(['PROD_DELETE']) });
+  assert.strictEqual((await svc.restore(user(5, 'user'), 'AD0001')).status, 403);
+  assert.strictEqual((await svc.restore(admin(), 'AD0001')).status, 200);
+  assert.strictEqual((await svc.restore(admin(), 'AD0002')).status, 404);
+  assert.strictEqual((await svc.restore(admin(), 'bad')).status, 404);
+});
+
+test('SQL: delete/restore touch only the right rows; counts ignore deleted prices and lines; scope all uses the table', async () => {
+  const db = recorder([{ prodcode: 'AD0001', prices: '0', lines: '0' }]);
+  await repo.softDeleteProduct(db, 'AD0001');
+  await repo.restoreProduct(db, 'AD0001');
+  await repo.countActiveChildren(db, 'AD0001');
+  assert.match(db.calls[0].sql, /SET is_deleted = true WHERE prodcode = \$1 AND NOT is_deleted/);
+  assert.match(db.calls[1].sql, /SET is_deleted = false WHERE prodcode = \$1 AND is_deleted/);
+  assert.match(db.calls[2].sql, /FROM pricehist WHERE prodcode = \$1 AND NOT is_deleted/);
+  assert.match(db.calls[2].sql, /FROM salesdetail WHERE prodcode = \$1 AND NOT is_deleted/);
+  const l = recorder();
+  await repo.listProducts(l, { scope: 'all', limit: 10, offset: 0 });
+  await repo.listProducts(l, { scope: 'deleted', limit: 10, offset: 0 });
+  await repo.listProducts(l, { scope: 'bogus', limit: 10, offset: 0 });
+  assert.match(l.calls[0].sql, /FROM product p/);
+  assert.match(l.calls[1].sql, /AND p\.is_deleted/);
+  assert.match(l.calls[2].sql, /FROM product_active p/);
 });
