@@ -135,3 +135,107 @@ test('menu: the Customer tile now links to the customer page, for people who may
   assert.deepStrictEqual(m.modules.map((x) => [x.code, x.href]), [['CUSTOMER', '/customers.html']]);
   assert.strictEqual(buildMenu(user(2, 'admin'), modules, []).modules[1].href, null); // Product page comes later
 });
+
+// ================= S2-DEV-02: add and edit =================
+const { validateCustomer } = require('../src/validators/customer');
+
+test('validator: trims, upper-cases the term, turns a blank address into null, ignores any code', () => {
+  const { errors, value } = validateCustomer({ code: 'C9999', name: '  Globus  ', address: '   ', payterm: '30d' });
+  assert.deepStrictEqual(errors, {});
+  assert.deepStrictEqual(value, { name: 'Globus', address: null, payterm: '30D' });
+});
+
+test('validator: required fields and the database column limits (name 20, address 50)', () => {
+  const none = validateCustomer({}).errors;
+  assert.ok(none.name && none.payterm && !none.address);
+  assert.match(validateCustomer({ name: 'x'.repeat(21), payterm: 'COD' }).errors.name, /20/);
+  assert.deepStrictEqual(validateCustomer({ name: 'x'.repeat(20), payterm: 'COD' }).errors, {});
+  assert.match(validateCustomer({ name: 'A', address: 'y'.repeat(51), payterm: 'COD' }).errors.address, /50/);
+  assert.ok(validateCustomer({ name: 'A', payterm: 'NET60' }).errors.payterm);
+  assert.ok(validateCustomer({ name: '   ', payterm: 'COD' }).errors.name);
+});
+
+test('SQL: the next code looks at every row (deleted too), under a lock, inside the transaction', async () => {
+  const calls = [];
+  const client = {
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      if (/MAX\(substr/.test(sql)) return { rows: [{ n: '26' }] };
+      return { rows: [{ custno: params ? params[0] : null }] };
+    },
+  };
+  const row = await repo.insertCustomer(client, { name: 'A', address: null, payterm: 'COD' });
+  assert.match(calls[0].sql, /pg_advisory_xact_lock/);
+  assert.match(calls[1].sql, /FROM customer WHERE/);          // the table, not the active view
+  assert.doesNotMatch(calls[1].sql, /customer_active/);
+  assert.strictEqual(calls[2].params[0], 'C0026');
+  assert.strictEqual(row.custno, 'C0026');
+});
+
+test('SQL: codes run out cleanly after C9999; edits skip deleted rows and never touch the code', async () => {
+  const full = { query: async (sql) => ({ rows: /MAX\(substr/.test(sql) ? [{ n: '10000' }] : [] }) };
+  await assert.rejects(repo.insertCustomer(full, { name: 'A', address: null, payterm: 'COD' }), (e) => e.code === 'CODE_EXHAUSTED');
+  const db = recorder();
+  await repo.updateCustomer(db, 'C0001', { name: 'N', address: null, payterm: '45D' });
+  assert.match(db.calls[0].sql, /UPDATE customer SET custname = \$2, address = \$3, payterm = \$4\s+WHERE custno = \$1 AND NOT is_deleted/);
+  assert.doesNotMatch(db.calls[0].sql, /SET custno/);
+});
+
+function writer(existing) {
+  const log = { users: [], inserted: null, updated: null };
+  const db = { txAs: async (name, fn) => { log.users.push(name); return fn({}); } };
+  const r = {
+    findCustomer: async (_d, code) => (existing && existing.custno === code ? existing : null),
+    insertCustomer: async (_c, v) => { log.inserted = v; return { custno: 'C0026', custname: v.name, address: v.address, payterm: v.payterm }; },
+    updateCustomer: async (_c, code, v) => { log.updated = { code, ...v }; return existing && existing.custno === code ? { custno: code, custname: v.name, address: v.address, payterm: v.payterm } : null; },
+  };
+  return { svc: createCustomers({ db, repo: r, perms: perms([]) }), log };
+}
+const ANA = { ...user(5, 'user'), email: 'ana@example.com' };
+
+test('create: saves under the actor\'s name, returns the new code; invalid input never reaches the database', async () => {
+  const { svc, log } = writer(null);
+  const bad = await svc.create(ANA, { name: '', payterm: '' });
+  assert.strictEqual(bad.status, 400);
+  assert.strictEqual(log.users.length, 0);
+  const r = await svc.create(ANA, { code: 'C0001', name: ' Peri ', address: '2880 Zanker', payterm: 'cod' });
+  assert.strictEqual(r.status, 201);
+  assert.deepStrictEqual(r.body.customer, { code: 'C0026', name: 'Peri', address: '2880 Zanker', payterm: 'COD' });
+  assert.deepStrictEqual(log.users, ['ana@example.com']);
+  assert.deepStrictEqual(log.inserted, { name: 'Peri', address: '2880 Zanker', payterm: 'COD' });
+});
+
+test('create: no codes left -> 409; other database errors propagate', async () => {
+  const mk = (err) => createCustomers({ db: { txAs: async () => { throw err; } }, repo: {}, perms: perms([]) });
+  const full = Object.assign(new Error('x'), { code: 'CODE_EXHAUSTED' });
+  assert.strictEqual((await mk(full).create(ANA, { name: 'A', payterm: 'COD' })).status, 409);
+  await assert.rejects(mk(new Error('connection lost')).create(ANA, { name: 'A', payterm: 'COD' }), /connection lost/);
+});
+
+test('update: the code in the URL decides which row; a code in the body is ignored; unknown or malformed -> 404', async () => {
+  const { svc, log } = writer({ custno: 'C0001', custname: 'Old', address: null, payterm: 'COD' });
+  const r = await svc.update(ANA, 'C0001', { code: 'C0002', name: 'New', address: '', payterm: '45D' });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(log.updated.code, 'C0001');
+  assert.deepStrictEqual(r.body.customer, { code: 'C0001', name: 'New', address: null, payterm: '45D' });
+  assert.strictEqual((await svc.update(ANA, 'C0099', { name: 'X', payterm: 'COD' })).status, 404);
+  assert.strictEqual((await svc.update(ANA, "C0001'; DROP", { name: 'X', payterm: 'COD' })).status, 404);
+  assert.strictEqual((await svc.update(ANA, 'C0001', { name: '', payterm: 'COD' })).status, 400);
+});
+
+test('get: returns one live customer; malformed or missing codes are 404', async () => {
+  const { svc } = writer({ custno: 'C0001', custname: 'Old', address: 'A', payterm: 'COD' });
+  assert.strictEqual((await svc.get('C0001')).body.customer.name, 'Old');
+  assert.strictEqual((await svc.get('C0002')).status, 404);
+  assert.strictEqual((await svc.get('nope')).status, 404);
+});
+
+test('rights: Add needs CUST_ADD, Edit needs CUST_EDIT (holding only the other right is not enough)', async () => {
+  const add = (rights) => requireRight(perms(rights), 'CUST_ADD');
+  const edit = (rights) => requireRight(perms(rights), 'CUST_EDIT');
+  assert.strictEqual((await run(add(['CUST_EDIT']), { user: user(5, 'user') })).code, 403);
+  assert.strictEqual((await run(add(['CUST_ADD']), { user: user(5, 'user') })).next, true);
+  assert.strictEqual((await run(edit(['CUST_ADD']), { user: user(5, 'user') })).code, 403);
+  assert.strictEqual((await run(edit(['CUST_EDIT']), { user: user(5, 'user') })).next, true);
+  assert.strictEqual((await run(edit([]), { user: user(2, 'admin') })).next, true);
+});

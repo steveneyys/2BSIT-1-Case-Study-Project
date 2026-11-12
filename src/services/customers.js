@@ -1,6 +1,7 @@
 'use strict';
 
-const PAYTERMS = ['COD', '30D', '45D'];
+const { validateCustomer, PAYTERMS } = require('../validators/customer');
+const { auditName } = require('./rights');
 const SORT_KEYS = ['name', 'code', 'term'];
 const PAGE_SIZES = [10, 25, 50, 100];
 const VIEW_RIGHTS = ['CUST_ADD', 'CUST_EDIT', 'CUST_DELETE']; // holding any customer right opens the module
@@ -17,6 +18,9 @@ function normalizeQuery(q = {}) {
 }
 
 const toItem = (r) => ({ code: r.custno, name: r.custname, address: r.address, payterm: r.payterm });
+
+const NOT_FOUND = { status: 404, body: { error: 'Customer not found.' } };
+const CODE_RE = /^C\d{4}$/;
 
 function createCustomers({ db, repo, perms }) {
   async function list(user, query) {
@@ -42,7 +46,34 @@ function createCustomers({ db, repo, perms }) {
       },
     };
   }
-  return { list };
+  async function get(code) {
+    if (!CODE_RE.test(String(code))) return NOT_FOUND;
+    const row = await repo.findCustomer(db, code);
+    return row ? { status: 200, body: { customer: toItem(row) } } : NOT_FOUND;
+  }
+
+  // The route has already checked CUST_ADD / CUST_EDIT. The audit log and the Stamp column name the real person.
+  async function create(actor, body) {
+    const { errors, value } = validateCustomer(body);
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    try {
+      const row = await db.txAs(auditName(actor), (client) => repo.insertCustomer(client, value));
+      return { status: 201, body: { customer: toItem(row) } };
+    } catch (err) {
+      if (err.code === 'CODE_EXHAUSTED') return { status: 409, body: { error: 'No more customer codes are available.' } };
+      throw err;
+    }
+  }
+
+  async function update(actor, code, body) {
+    if (!CODE_RE.test(String(code))) return NOT_FOUND;
+    const { errors, value } = validateCustomer(body); // any "code" in the body is ignored
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    const row = await db.txAs(auditName(actor), (client) => repo.updateCustomer(client, code, value));
+    return row ? { status: 200, body: { customer: toItem(row) } } : NOT_FOUND;
+  }
+
+  return { list, get, create, update };
 }
 
 module.exports = { createCustomers, normalizeQuery, VIEW_RIGHTS, PAYTERMS };
