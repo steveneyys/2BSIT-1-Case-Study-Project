@@ -15,15 +15,16 @@ const perms = (rights) => createPermissions({ db: {}, repo: { listUserRights: as
 
 // ---- query cleaning ----
 test('normalizeQuery: defaults, trimming and safe fallbacks', () => {
-  assert.deepStrictEqual(normalizeQuery({}), { search: '', payterm: null, sort: 'name', dir: 'asc', pageSize: 25, page: 1 });
+  assert.deepStrictEqual(normalizeQuery({}), { search: '', payterm: null, status: 'active', sort: 'name', dir: 'asc', pageSize: 25, page: 1 });
   const n = normalizeQuery({ search: '  Globus  ', payterm: '30d', sort: 'term', dir: 'desc', pageSize: '50', page: '3' });
-  assert.deepStrictEqual(n, { search: 'Globus', payterm: '30D', sort: 'term', dir: 'desc', pageSize: 50, page: 3 });
+  assert.deepStrictEqual(n, { search: 'Globus', payterm: '30D', status: 'active', sort: 'term', dir: 'desc', pageSize: 50, page: 3 });
 });
 
 test('normalizeQuery: hostile or invalid values fall back instead of reaching the database', () => {
-  const n = normalizeQuery({ search: 'x'.repeat(500), payterm: "COD'; DROP TABLE customer;--", sort: 'custname; DROP', dir: 'sideways', pageSize: '100000', page: '-4' });
+  const n = normalizeQuery({ search: 'x'.repeat(500), payterm: "COD'; DROP TABLE customer;--", status: 'everything', sort: 'custname; DROP', dir: 'sideways', pageSize: '100000', page: '-4' });
   assert.strictEqual(n.search.length, 100);
   assert.strictEqual(n.payterm, null);
+  assert.strictEqual(n.status, 'active');
   assert.strictEqual(n.sort, 'name');
   assert.strictEqual(n.dir, 'asc');
   assert.strictEqual(n.pageSize, 25);
@@ -68,17 +69,17 @@ test('list: maps rows, computes totals and pages, and reports the viewer\'s righ
   assert.deepStrictEqual(r.body.customers[0], { code: 'C0001', name: 'Globus', address: 'A', payterm: '30D' });
   assert.strictEqual(r.body.total, 53);
   assert.strictEqual(r.body.pages, 6);
-  assert.deepStrictEqual(r.body.can, { add: false, edit: true, delete: false });
+  assert.deepStrictEqual(r.body.can, { add: false, edit: true, delete: false, restore: false, seeDeleted: false });
   assert.strictEqual(svc.last.limit, 10);
   assert.strictEqual(svc.last.offset, 10);
   assert.ok(!JSON.stringify(r.body).includes('total":"'));
 });
 
 test('list: an empty result is page 1 of 1 with total 0; admins can do everything', async () => {
-  const svc = createCustomers({ db: {}, repo: { listCustomers: async () => [] }, perms: perms([]) });
+  const svc = createCustomers({ db: {}, repo: { listCustomers: async () => [], countCustomers: async () => ({ active: 0, deleted: 0, all: 0 }) }, perms: perms([]) });
   const r = await svc.list(user(1, 'admin'), {});
   assert.deepStrictEqual([r.body.total, r.body.pages, r.body.customers.length], [0, 1, 0]);
-  assert.deepStrictEqual(r.body.can, { add: true, edit: true, delete: true });
+  assert.deepStrictEqual(r.body.can, { add: true, edit: true, delete: true, restore: true, seeDeleted: true });
 });
 
 // ---- permission checks ----
@@ -238,4 +239,115 @@ test('rights: Add needs CUST_ADD, Edit needs CUST_EDIT (holding only the other r
   assert.strictEqual((await run(edit(['CUST_ADD']), { user: user(5, 'user') })).code, 403);
   assert.strictEqual((await run(edit(['CUST_EDIT']), { user: user(5, 'user') })).next, true);
   assert.strictEqual((await run(edit([]), { user: user(2, 'admin') })).next, true);
+});
+
+// ================= S2-DEV-03: soft delete and restore =================
+const FULL = { custno: 'C0001', custname: 'Globus', address: 'A', payterm: '30D', is_deleted: false, stamp: 'ADD system 2026-11-01 9:00 AM', total: '1' };
+const GONE = { ...FULL, custno: 'C0002', custname: 'RF', is_deleted: true, stamp: 'DELETE ana@example.com 2026-11-12 2:00 PM' };
+
+function lister(rows) {
+  const seen = {};
+  const repoFake = { listCustomers: async (_d, a) => { seen.args = a; return rows; }, countCustomers: async () => ({ active: 24, deleted: 1, all: 25 }) };
+  return { seen, svc: createCustomers({ db: {}, repo: repoFake, perms: perms([]) }) };
+}
+
+test('list: Admins see Status, Stamp, the Inactive rows and tab counts; Users get none of that', async () => {
+  const a = lister([FULL, GONE]);
+  const r = await a.svc.list(user(1, 'admin'), { status: 'all' });
+  assert.strictEqual(a.seen.args.scope, 'all');
+  assert.deepStrictEqual(r.body.customers[1], { code: 'C0002', name: 'RF', address: 'A', payterm: '30D', deleted: true, status: 'Inactive', stamp: 'DELETE ana@example.com 2026-11-12 2:00 PM' });
+  assert.deepStrictEqual(r.body.counts, { active: 24, deleted: 1, all: 25 });
+  assert.strictEqual(r.body.can.restore, true);
+
+  const u = lister([FULL]);
+  const mine = await u.svc.list(user(5, 'user'), { status: 'all' }); // a User asking for "all" still gets only active rows
+  assert.strictEqual(u.seen.args.scope, 'active');
+  assert.strictEqual(mine.body.counts, undefined);
+  assert.ok(!('stamp' in mine.body.customers[0]) && !('status' in mine.body.customers[0]) && !('deleted' in mine.body.customers[0]));
+  assert.strictEqual(mine.body.can.restore, false);
+});
+
+test('SQL: Admin scopes read the table, the active scope reads the view', async () => {
+  for (const [scope, from, extra] of [['active', /FROM customer_active/, null], ['deleted', /FROM customer\s+WHERE[\s\S]*AND is_deleted/, 1], ['all', /FROM customer\s+WHERE/, null]]) {
+    const db = recorder();
+    await repo.listCustomers(db, { scope, limit: 10, offset: 0 });
+    assert.match(db.calls[0].sql, from, scope);
+    if (scope !== 'active') assert.doesNotMatch(db.calls[0].sql, /customer_active/);
+    assert.match(db.calls[0].sql, /stamp/);
+  }
+  const bad = recorder();
+  await repo.listCustomers(bad, { scope: "all; DROP TABLE customer", limit: 10, offset: 0 });
+  assert.match(bad.calls[0].sql, /FROM customer_active/); // unknown scope falls back to the safe view
+});
+
+test('SQL: delete and restore are UPDATEs of is_deleted only (never DELETE), and only on the right state', async () => {
+  const db = recorder([{ custno: 'C0001' }]);
+  await repo.softDeleteCustomer(db, 'C0001');
+  await repo.restoreCustomer(db, 'C0001');
+  assert.match(db.calls[0].sql, /UPDATE customer SET is_deleted = true WHERE custno = \$1 AND NOT is_deleted/);
+  assert.match(db.calls[1].sql, /UPDATE customer SET is_deleted = false WHERE custno = \$1 AND is_deleted/);
+  for (const c of db.calls) assert.doesNotMatch(c.sql, /DELETE FROM/i);
+  const counts = recorder([{ active: '24', deleted: '1', total: '25' }]);
+  assert.deepStrictEqual(await repo.countCustomers(counts), { active: 24, deleted: 1, all: 25 });
+  const sales = recorder([{ n: '3' }]);
+  assert.strictEqual(await repo.countActiveSales(sales, 'C0001'), 3);
+  assert.match(sales.calls[0].sql, /sales_active/);
+});
+
+function deleter({ sales = 0, found = true, trigger = false } = {}) {
+  const log = { users: [], deleted: [], restored: [] };
+  const db = { txAs: async (name, fn) => { log.users.push(name); return fn({}); } };
+  const r = {
+    findCustomer: async () => (found ? { custno: 'C0001', custname: 'Globus', address: null, payterm: 'COD' } : null),
+    countActiveSales: async () => sales,
+    softDeleteCustomer: async (_c, code) => { if (trigger) throw new Error('Cannot delete customer row: 2 active related record(s) still exist.'); log.deleted.push(code); return { custno: code, custname: 'Globus', address: null, payterm: 'COD' }; },
+    restoreCustomer: async (_c, code) => { log.restored.push(code); return found ? { custno: code, custname: 'Globus', address: null, payterm: 'COD' } : null; },
+  };
+  return { svc: createCustomers({ db, repo: r, perms: perms([]) }), log };
+}
+
+test('delete: soft-deletes under the actor\'s name', async () => {
+  const { svc, log } = deleter();
+  const r = await svc.remove(ANA, 'C0001');
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(log.deleted, ['C0001']);
+  assert.deepStrictEqual(log.users, ['ana@example.com']);
+});
+
+test('delete: refused with a clear message while the customer has active sales; the row is untouched', async () => {
+  const { svc, log } = deleter({ sales: 2 });
+  const r = await svc.remove(ANA, 'C0001');
+  assert.strictEqual(r.status, 409);
+  assert.match(r.body.error, /Globus has 2 active sales/);
+  assert.strictEqual(log.deleted.length, 0);
+  assert.match((await deleter({ sales: 1 }).svc.remove(ANA, 'C0001')).body.error, /1 active sale,/);
+});
+
+test('delete: the database trigger is the last guard (a sale added in the meantime) -> 409, not a crash', async () => {
+  const r = await deleter({ trigger: true }).svc.remove(ANA, 'C0001');
+  assert.strictEqual(r.status, 409);
+  const boom = createCustomers({ db: { txAs: async () => { throw new Error('connection lost'); } }, repo: {}, perms: perms([]) });
+  await assert.rejects(boom.remove(ANA, 'C0001'), /connection lost/);
+});
+
+test('delete: unknown, already-deleted or malformed code -> 404', async () => {
+  assert.strictEqual((await deleter({ found: false }).svc.remove(ANA, 'C0001')).status, 404);
+  assert.strictEqual((await deleter().svc.remove(ANA, 'x')).status, 404);
+});
+
+test('restore: Admins and Superadmins only (checked in the service as well as the route)', async () => {
+  const { svc, log } = deleter();
+  assert.strictEqual((await svc.restore(ANA, 'C0001')).status, 403);
+  assert.strictEqual(log.restored.length, 0);
+  assert.strictEqual((await svc.restore(user(2, 'admin'), 'C0001')).status, 200);
+  assert.strictEqual((await svc.restore(user(1, 'superadmin'), 'C0001')).status, 200);
+  assert.strictEqual((await deleter({ found: false }).svc.restore(user(2, 'admin'), 'C0001')).status, 404);
+  assert.strictEqual((await svc.restore(user(2, 'admin'), 'bad')).status, 404);
+});
+
+test('rights: Delete needs CUST_DELETE (Add or Edit alone is not enough)', async () => {
+  const del = (rights) => requireRight(perms(rights), 'CUST_DELETE');
+  assert.strictEqual((await run(del(['CUST_ADD', 'CUST_EDIT']), { user: user(5, 'user') })).code, 403);
+  assert.strictEqual((await run(del(['CUST_DELETE']), { user: user(5, 'user') })).next, true);
+  assert.strictEqual((await run(del([]), { user: user(2, 'admin') })).next, true);
 });
