@@ -11,6 +11,12 @@ const sizeEl = document.getElementById('pageSize');
 const prevEl = document.getElementById('prev');
 const nextEl = document.getElementById('next');
 const state = { page: 1, sort: 'description', dir: 'asc' };
+let can = { add: false, edit: false }; // from the server; it still checks every action
+let opener = null;
+let editingCode = null;
+const dialog = document.getElementById('product-dialog');
+const form = document.getElementById('product-form');
+const FIELDS = ['code', 'description', 'unit'];
 let timer = null;
 let requestId = 0;
 
@@ -20,11 +26,13 @@ const dateFmt = new Intl.DateTimeFormat('en-PH', { year: 'numeric', month: 'shor
 function flash(kind, text) { msgEl.className = kind; msgEl.textContent = text; }
 function clearMsg() { msgEl.className = ''; msgEl.textContent = ''; }
 
+function cols() { return can.edit ? 5 : 4; }
+
 function emptyRow(text) {
   rowsEl.replaceChildren();
   const tr = document.createElement('tr');
   const td = document.createElement('td');
-  td.colSpan = 4;
+  td.colSpan = cols();
   td.className = 'muted';
   td.textContent = text;
   tr.append(td);
@@ -46,6 +54,9 @@ function priceCell(p) {
 }
 
 function render(data) {
+  can = data.can || can;
+  document.getElementById('add-btn').hidden = !can.add;
+  document.getElementById('actions-th').hidden = !can.edit;
   const filtered = Boolean(searchEl.value.trim() || unitEl.value);
   document.getElementById('clear').hidden = !filtered;
   if (!data.products.length) {
@@ -65,6 +76,20 @@ function render(data) {
       badge.textContent = p.unit || '—';
       unitTd.append(badge);
       tr.append(unitTd, priceCell(p));
+      if (can.edit) {
+        const actionsTd = document.createElement('td');
+        const box = document.createElement('div');
+        box.className = 'actions';
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn';
+        edit.textContent = 'Edit';
+        edit.setAttribute('aria-label', `Edit ${p.description || p.code}`);
+        edit.addEventListener('click', () => openDialog(p, edit));
+        box.append(edit);
+        actionsTd.append(box);
+        tr.append(actionsTd);
+      }
       rowsEl.append(tr);
     }
   }
@@ -116,5 +141,72 @@ for (const b of document.querySelectorAll('.sort')) {
     reload();
   });
 }
+
+// ---- Add / Edit (S2-DEV-05) ----
+function showErrors(errors = {}) {
+  for (const f of FIELDS) {
+    const el = form.querySelector(`[data-for="${f}"]`);
+    if (el) el.textContent = errors[f] || '';
+    if (form.elements[f]) form.elements[f].setAttribute('aria-invalid', errors[f] ? 'true' : 'false');
+  }
+}
+
+function openDialog(product, trigger) {
+  opener = trigger;
+  editingCode = product ? product.code : null;
+  document.getElementById('product-title').textContent = product ? 'Edit Product' : 'Add Product';
+  form.elements.code.value = product ? product.code : '';
+  form.elements.code.readOnly = Boolean(product); // the code never changes
+  document.getElementById('code-hint').textContent = product
+    ? 'The code cannot be changed.'
+    : 'Two letters and four digits, for example AD0001. It cannot be changed later.';
+  form.elements.description.value = product ? product.description : '';
+  form.elements.unit.value = product ? product.unit : '';
+  showErrors();
+  document.getElementById('form-error').textContent = '';
+  dialog.showModal();
+  (product ? form.elements.description : form.elements.code).focus();
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  showErrors();
+  document.getElementById('form-error').textContent = '';
+  const saveBtn = document.getElementById('save-btn');
+  saveBtn.disabled = true;
+  const body = { code: form.elements.code.value, description: form.elements.description.value, unit: form.elements.unit.value };
+  try {
+    const res = await fetch(editingCode ? `/api/products/${encodeURIComponent(editingCode)}` : '/api/products', {
+      method: editingCode ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      dialog.close();
+      flash('ok', editingCode ? `${json.product.description} was updated.` : `${json.product.description} was added as ${json.product.code}.`);
+      load();
+    } else if (json.errors) {
+      showErrors(json.errors); // the form stays open with the problem shown
+      const first = FIELDS.find((f) => json.errors[f]);
+      if (first) form.elements[first].focus();
+    } else {
+      document.getElementById('form-error').textContent = json.error || 'Something went wrong. Please try again.';
+    }
+  } catch {
+    document.getElementById('form-error').textContent = 'Could not reach the server. Please try again.';
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+dialog.addEventListener('close', () => {
+  const target = opener && document.contains(opener) ? opener : document.getElementById('add-btn');
+  target.focus();
+});
+document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
+document.getElementById('product-close').addEventListener('click', () => dialog.close());
+document.getElementById('add-btn').addEventListener('click', (e) => openDialog(null, e.currentTarget));
 
 load();

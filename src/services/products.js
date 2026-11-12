@@ -1,6 +1,7 @@
 'use strict';
 
-const UNITS = ['pc', 'ea', 'mtr', 'pkg', 'ltr']; // unit_ck in the database
+const { validateProduct, UNITS, CODE_RE } = require('../validators/product');
+const { auditName } = require('./rights');
 const SORT_KEYS = ['code', 'description', 'unit', 'price'];
 const PAGE_SIZES = [10, 25, 50, 100];
 // Holding any product or price right opens the module (the same rule the menu uses).
@@ -23,6 +24,20 @@ const toItem = (r) => ({
   unit: r.unit,
   price: r.unitprice === null || r.unitprice === undefined ? null : Number(r.unitprice),
   priceDate: r.effdate || null,
+});
+
+const NOT_FOUND = { status: 404, body: { error: 'Product not found.' } };
+const toBasic = (r) => ({ code: r.prodcode, description: String(r.description ?? '').trim(), unit: r.unit });
+
+const takenResponse = (row) => ({
+  status: 409,
+  body: {
+    errors: {
+      code: row.is_deleted
+        ? 'That code belongs to a deleted product. An Admin can restore it, or choose another code.'
+        : 'That product code is already in use.',
+    },
+  },
 });
 
 function createProducts({ db, repo, perms }) {
@@ -49,7 +64,37 @@ function createProducts({ db, repo, perms }) {
       },
     };
   }
-  return { list };
+  async function get(code) {
+    if (!CODE_RE.test(String(code))) return NOT_FOUND;
+    const row = await repo.findProduct(db, code);
+    return row ? { status: 200, body: { product: toBasic(row) } } : NOT_FOUND;
+  }
+
+  // The route has already checked PROD_ADD / PROD_EDIT. The audit log and the Stamp column name the real person.
+  async function create(actor, body) {
+    const { errors, value } = validateProduct(body, { needCode: true });
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const taken = await repo.findAnyProduct(client, value.code);
+        if (taken) return takenResponse(taken);
+        return { status: 201, body: { product: toBasic(await repo.insertProduct(client, value)) } };
+      });
+    } catch (err) {
+      if (err.code === '23505') return takenResponse({ is_deleted: false }); // two people adding the same code at once
+      throw err;
+    }
+  }
+
+  async function update(actor, code, body) {
+    if (!CODE_RE.test(String(code))) return NOT_FOUND;
+    const { errors, value } = validateProduct(body); // any "code" in the body is ignored
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    const row = await db.txAs(auditName(actor), (client) => repo.updateProduct(client, code, value));
+    return row ? { status: 200, body: { product: toBasic(row) } } : NOT_FOUND;
+  }
+
+  return { list, get, create, update };
 }
 
 module.exports = { createProducts, normalizeQuery, VIEW_RIGHTS, UNITS };

@@ -40,4 +40,34 @@ async function listProducts(db, { search, unit, sort, dir, limit, offset }) {
   return rows;
 }
 
-module.exports = { listProducts, escapeLike, SORTS };
+const COLUMNS = 'prodcode, description, unit';
+
+async function findProduct(db, prodcode) {
+  const { rows } = await db.query(`SELECT ${COLUMNS} FROM product_active WHERE prodcode = $1`, [prodcode]);
+  return rows[0] || null;
+}
+
+// Looks at the table itself (deleted rows too) so Add can tell "taken" from "taken by a deleted product".
+async function findAnyProduct(db, prodcode) {
+  const { rows } = await db.query('SELECT prodcode, is_deleted FROM product WHERE prodcode = $1', [prodcode]);
+  return rows[0] || null;
+}
+
+async function insertProduct(client, { code, description, unit }) {
+  const { rows } = await client.query(
+    `INSERT INTO product (prodcode, description, unit) VALUES ($1, $2, $3) RETURNING ${COLUMNS}`,
+    [code, description, unit]
+  );
+  return rows[0];
+}
+
+// Only live rows can be edited; the code never changes. Returns null if the product is missing or deleted.
+async function updateProduct(client, prodcode, { description, unit }) {
+  const { rows } = await client.query(
+    `UPDATE product SET description = $2, unit = $3 WHERE prodcode = $1 AND NOT is_deleted RETURNING ${COLUMNS}`,
+    [prodcode, description, unit]
+  );
+  return rows[0] || null;
+}
+
+module.exports = { findProduct, findAnyProduct, insertProduct, updateProduct, listProducts, escapeLike, SORTS };

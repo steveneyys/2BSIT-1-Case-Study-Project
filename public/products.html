@@ -29,6 +29,7 @@
         <option value="ltr">ltr (liter)</option>
       </select>
       <button class="btn" type="button" id="clear" hidden>Clear filters</button>
+      <button class="btn primary" type="button" id="add-btn" hidden>Add Product</button>
     </form>
     <div id="msg" role="status" aria-live="polite"></div>
     <div class="table-wrap products">
@@ -40,6 +41,7 @@
             <th scope="col" aria-sort="ascending"><button type="button" class="sort" data-sort="description">Description</button></th>
             <th scope="col" aria-sort="none"><button type="button" class="sort" data-sort="unit">Unit</button></th>
             <th scope="col" aria-sort="none" class="num"><button type="button" class="sort" data-sort="price">Current price</button></th>
+            <th scope="col" id="actions-th" hidden>Actions</th>
           </tr>
         </thead>
         <tbody id="rows"><tr><td colspan="4" class="muted">Loading...</td></tr></tbody>
@@ -59,6 +61,34 @@
       </span>
     </div>
   </main>
+  <dialog id="product-dialog" aria-labelledby="product-title">
+    <form id="product-form" method="dialog" novalidate>
+      <div class="head"><h2 id="product-title">Add Product</h2><button type="button" class="close" id="product-close" aria-label="Close">&times;</button></div>
+      <hr />
+      <label for="code">Product code <span class="req">(required)</span></label>
+      <input id="code" name="code" maxlength="6" autocomplete="off" required aria-describedby="code-hint" style="text-transform:uppercase" />
+      <div class="hint" id="code-hint">Two letters and four digits, for example AD0001. It cannot be changed later.</div>
+      <div class="err" data-for="code"></div>
+      <label for="description">Description <span class="req">(required)</span></label>
+      <input id="description" name="description" maxlength="30" required />
+      <div class="err" data-for="description"></div>
+      <label for="form-unit">Unit <span class="req">(required)</span></label>
+      <select id="form-unit" name="unit" required>
+        <option value="">Choose a unit</option>
+        <option value="pc">pc (piece)</option>
+        <option value="ea">ea (each)</option>
+        <option value="mtr">mtr (meter)</option>
+        <option value="pkg">pkg (package)</option>
+        <option value="ltr">ltr (liter)</option>
+      </select>
+      <div class="err" data-for="unit"></div>
+      <div class="err" id="form-error" role="alert"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="cancel-btn">Cancel</button>
+        <button class="btn primary" type="submit" id="save-btn">Save Product</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/js/shell.js"></script>
   <script src="/js/products.js"></script>
 </body>

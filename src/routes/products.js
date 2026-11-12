@@ -22,5 +22,18 @@ module.exports = function productRoutes(db, perms) {
     }
   });
 
+  const handle = (fn) => async (req, res, next) => {
+    try {
+      const { status, body } = await fn(req);
+      res.status(status).json(body);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  router.get('/:code', handle((req) => products.get(req.params.code)));
+  router.post('/', requireRight(perms, 'PROD_ADD'), handle((req) => products.create(req.user, req.body)));
+  router.put('/:code', requireRight(perms, 'PROD_EDIT'), handle((req) => products.update(req.user, req.params.code, req.body)));
+
   return router;
 };
