@@ -2,8 +2,8 @@
 const { makeClient } = require('./lib/db');
 
 const EXPECT = {
-  customer: 82, product: 57, sales: 124, salesdetail: 313, payment: 165,
-  pricehist: 79, jobhistory: 54, job: 14,
+  customer: 92, product: 65, sales: 124, salesdetail: 313, payment: 165,
+  pricehist: 93, jobhistory: 54, job: 14,
   role: 3, module: 5, right_catalog: 36,
 };
 
