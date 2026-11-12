@@ -10,8 +10,8 @@ const unitEl = document.getElementById('unit');
 const sizeEl = document.getElementById('pageSize');
 const prevEl = document.getElementById('prev');
 const nextEl = document.getElementById('next');
-const state = { page: 1, sort: 'description', dir: 'asc' };
-let can = { add: false, edit: false }; // from the server; it still checks every action
+const state = { page: 1, status: 'active', sort: 'description', dir: 'asc' };
+let can = { add: false, edit: false, delete: false, restore: false, seeDeleted: false }; // from the server; it still checks every action
 let opener = null;
 let editingCode = null;
 const dialog = document.getElementById('product-dialog');
@@ -26,7 +26,8 @@ const dateFmt = new Intl.DateTimeFormat('en-PH', { year: 'numeric', month: 'shor
 function flash(kind, text) { msgEl.className = kind; msgEl.textContent = text; }
 function clearMsg() { msgEl.className = ''; msgEl.textContent = ''; }
 
-function cols() { return can.edit ? 5 : 4; }
+function showActions() { return can.edit || can.delete || can.restore; }
+function cols() { return 4 + (can.seeDeleted ? 2 : 0) + (showActions() ? 1 : 0); }
 
 function emptyRow(text) {
   rowsEl.replaceChildren();
@@ -56,7 +57,10 @@ function priceCell(p) {
 function render(data) {
   can = data.can || can;
   document.getElementById('add-btn').hidden = !can.add;
-  document.getElementById('actions-th').hidden = !can.edit;
+  document.getElementById('actions-th').hidden = !showActions();
+  document.getElementById('status-th').hidden = !can.seeDeleted;
+  document.getElementById('stamp-th').hidden = !can.seeDeleted;
+  renderTabs(data.counts);
   const filtered = Boolean(searchEl.value.trim() || unitEl.value);
   document.getElementById('clear').hidden = !filtered;
   if (!data.products.length) {
@@ -76,17 +80,36 @@ function render(data) {
       badge.textContent = p.unit || '—';
       unitTd.append(badge);
       tr.append(unitTd, priceCell(p));
-      if (can.edit) {
+      if (can.seeDeleted) {
+        const statusTd = document.createElement('td');
+        const sb = document.createElement('span');
+        sb.className = `badge${p.deleted ? ' blocked' : ''}`;
+        sb.textContent = p.status;
+        statusTd.append(sb);
+        const stampTd = document.createElement('td');
+        stampTd.textContent = p.stamp || '\u2014';
+        tr.append(statusTd, stampTd);
+      }
+      if (p.deleted) tr.className = 'row-deleted';
+      if (showActions()) {
         const actionsTd = document.createElement('td');
         const box = document.createElement('div');
         box.className = 'actions';
-        const edit = document.createElement('button');
-        edit.type = 'button';
-        edit.className = 'btn';
-        edit.textContent = 'Edit';
-        edit.setAttribute('aria-label', `Edit ${p.description || p.code}`);
-        edit.addEventListener('click', () => openDialog(p, edit));
-        box.append(edit);
+        const act = (label, cls, fn) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = `btn ${cls}`.trim();
+          b.textContent = label;
+          b.setAttribute('aria-label', `${label} ${p.description || p.code}`);
+          b.addEventListener('click', () => fn(b));
+          box.append(b);
+        };
+        if (p.deleted) {
+          if (can.restore) act('Restore', '', (b) => restoreProduct(p, b));
+        } else {
+          if (can.edit) act('Edit', '', (b) => openDialog(p, b));
+          if (can.delete) act('Delete', 'danger', (b) => askDelete(p, b));
+        }
         actionsTd.append(box);
         tr.append(actionsTd);
       }
@@ -108,7 +131,7 @@ function render(data) {
 async function load() {
   const mine = ++requestId; // ignore an older, slower response
   const params = new URLSearchParams({
-    search: searchEl.value.trim(), unit: unitEl.value, sort: state.sort, dir: state.dir,
+    search: searchEl.value.trim(), unit: unitEl.value, status: state.status, sort: state.sort, dir: state.dir,
     page: String(state.page), pageSize: sizeEl.value,
   });
   try {
@@ -140,6 +163,78 @@ for (const b of document.querySelectorAll('.sort')) {
     state.sort = b.dataset.sort;
     reload();
   });
+}
+
+// ---- Status tabs: Admins only (S2-DEV-06) ----
+const TABS = [['active', 'Active', 'active'], ['deleted', 'Inactive', 'deleted'], ['all', 'All', 'all']];
+function renderTabs(counts) {
+  const box = document.getElementById('status-tabs');
+  box.hidden = !can.seeDeleted || !counts;
+  if (box.hidden) return;
+  box.replaceChildren();
+  for (const [key, label, countKey] of TABS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `${label} ${counts[countKey]}`;
+    b.setAttribute('aria-pressed', String(state.status === key));
+    b.addEventListener('click', () => { state.status = key; reload(); });
+    box.append(b);
+  }
+}
+
+// ---- Delete (with confirmation) and Restore ----
+const confirmDialog = document.getElementById('confirm-dialog');
+let pendingDelete = null;
+let confirmOpener = null;
+
+function askDelete(product, trigger) {
+  pendingDelete = product;
+  confirmOpener = trigger;
+  document.getElementById('confirm-text').textContent =
+    `${product.description} (${product.code}) will be marked Inactive. An Admin can restore it later.`;
+  document.getElementById('confirm-error').textContent = '';
+  confirmDialog.showModal();
+  document.getElementById('confirm-cancel').focus(); // the safe choice has the focus
+}
+
+document.getElementById('confirm-cancel').addEventListener('click', () => confirmDialog.close());
+confirmDialog.addEventListener('close', () => {
+  const target = confirmOpener && document.contains(confirmOpener) ? confirmOpener : searchEl;
+  target.focus();
+});
+document.getElementById('confirm-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const okBtn = document.getElementById('confirm-ok');
+  okBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/products/${encodeURIComponent(pendingDelete.code)}`, { method: 'DELETE' });
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      confirmDialog.close();
+      flash('ok', `${pendingDelete.description} was deleted.`);
+      load();
+    } else {
+      document.getElementById('confirm-error').textContent = json.error || 'Could not delete this product.';
+    }
+  } catch {
+    document.getElementById('confirm-error').textContent = 'Could not reach the server. Please try again.';
+  } finally {
+    okBtn.disabled = false;
+  }
+});
+
+async function restoreProduct(product, button) {
+  button.disabled = true;
+  try {
+    const res = await fetch(`/api/products/${encodeURIComponent(product.code)}/restore`, { method: 'POST' });
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) { flash('ok', `${product.description} was restored.`); load(); } else { flash('bad', json.error || 'Could not restore this product.'); button.disabled = false; }
+  } catch {
+    flash('bad', 'Could not reach the server. Please try again.');
+    button.disabled = false;
+  }
 }
 
 // ---- Add / Edit (S2-DEV-05) ----

@@ -3,7 +3,7 @@
 const express = require('express');
 const productRepo = require('../repositories/productRepo');
 const { createProducts, VIEW_RIGHTS } = require('../services/products');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const { requireRight } = require('../middleware/permissions');
 
 module.exports = function productRoutes(db, perms) {
@@ -34,6 +34,9 @@ module.exports = function productRoutes(db, perms) {
   router.get('/:code', handle((req) => products.get(req.params.code)));
   router.post('/', requireRight(perms, 'PROD_ADD'), handle((req) => products.create(req.user, req.body)));
   router.put('/:code', requireRight(perms, 'PROD_EDIT'), handle((req) => products.update(req.user, req.params.code, req.body)));
+
+  router.delete('/:code', requireRight(perms, 'PROD_DELETE'), handle((req) => products.remove(req.user, req.params.code)));
+  router.post('/:code/restore', requireRole('admin', 'superadmin'), handle((req) => products.restore(req.user, req.params.code)));
 
   return router;
 };
