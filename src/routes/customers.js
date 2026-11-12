@@ -22,5 +22,18 @@ module.exports = function customerRoutes(db, perms) {
     }
   });
 
+  const handle = (fn) => async (req, res, next) => {
+    try {
+      const { status, body } = await fn(req);
+      res.status(status).json(body);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  router.get('/:code', handle((req) => customers.get(req.params.code)));
+  router.post('/', requireRight(perms, 'CUST_ADD'), handle((req) => customers.create(req.user, req.body)));
+  router.put('/:code', requireRight(perms, 'CUST_EDIT'), handle((req) => customers.update(req.user, req.params.code, req.body)));
+
   return router;
 };

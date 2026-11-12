@@ -27,6 +27,7 @@
         <option value="45D">45D (45 days)</option>
       </select>
       <button class="btn" type="button" id="clear" hidden>Clear filters</button>
+      <button class="btn primary" type="button" id="add-btn" hidden>Add Customer</button>
     </form>
     <div id="msg" role="status" aria-live="polite"></div>
     <div class="table-wrap customers">
@@ -38,6 +39,7 @@
             <th scope="col" aria-sort="ascending"><button type="button" class="sort" data-sort="name">Name</button></th>
             <th scope="col">Address</th>
             <th scope="col" aria-sort="none"><button type="button" class="sort" data-sort="term">Payment term</button></th>
+            <th scope="col" id="actions-th" hidden>Actions</th>
           </tr>
         </thead>
         <tbody id="rows"><tr><td colspan="4" class="muted">Loading...</td></tr></tbody>
@@ -57,6 +59,36 @@
       </span>
     </div>
   </main>
+  <dialog id="customer-dialog" aria-labelledby="customer-title">
+    <form id="customer-form" method="dialog" novalidate>
+      <div class="head"><h2 id="customer-title">Add Customer</h2><button type="button" class="close" id="customer-close" aria-label="Close">&times;</button></div>
+      <hr />
+      <div id="code-wrap" hidden>
+        <label for="code">Customer code</label>
+        <input id="code" name="code" readonly />
+        <div class="hint">The code is made by the system and cannot be changed.</div>
+      </div>
+      <label for="name">Customer name <span class="req">(required)</span></label>
+      <input id="name" name="name" maxlength="20" required aria-describedby="name-err" />
+      <div class="err" id="name-err" data-for="name"></div>
+      <label for="address">Address</label>
+      <input id="address" name="address" maxlength="50" />
+      <div class="err" data-for="address"></div>
+      <label for="form-payterm">Payment term <span class="req">(required)</span></label>
+      <select id="form-payterm" name="payterm" required>
+        <option value="">Choose a payment term</option>
+        <option value="COD">COD (cash on delivery)</option>
+        <option value="30D">30D (30 days)</option>
+        <option value="45D">45D (45 days)</option>
+      </select>
+      <div class="err" data-for="payterm"></div>
+      <div class="err" id="form-error" role="alert"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="cancel-btn">Cancel</button>
+        <button class="btn primary" type="submit" id="save-btn">Save Customer</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/js/shell.js"></script>
   <script src="/js/customers.js"></script>
 </body>
