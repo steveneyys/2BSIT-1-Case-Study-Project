@@ -14,6 +14,7 @@ const PAGE_RULES = {
   '/users.html': { roles: ['admin', 'superadmin'] },
   '/user-form.html': { roles: ['admin', 'superadmin'] },
   '/customers.html': { roles: null, rights: ['CUST_ADD', 'CUST_EDIT', 'CUST_DELETE'] },
+  '/products.html': { roles: null, rights: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'] },
 };
 
 // Same page, different spelling: /USERS.HTML, /%75sers.html, //users.html, /a/../users.html.

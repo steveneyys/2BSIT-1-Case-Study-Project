@@ -9,6 +9,7 @@ const userRoutes = require('./routes/users');
 const rightsRoutes = require('./routes/rights');
 const menuRoutes = require('./routes/menu');
 const customerRoutes = require('./routes/customers');
+const productRoutes = require('./routes/products');
 const rightsRepo = require('./repositories/rightsRepo');
 const { createPermissions } = require('./services/permissions');
 const { guardPages } = require('./middleware/pageGuard');
@@ -54,6 +55,7 @@ function createApp({ config, db, googleVerifier }) {
   // Reusable permission checks for later sprints: requireRight(perms, 'RIGHT_CODE') from middleware/permissions.js
   app.use('/api/menu', menuRoutes(db, perms));
   app.use('/api/customers', customerRoutes(db, perms));
+  app.use('/api/products', productRoutes(db, perms));
   // Later PRs mount here: /api/auth (DEV-02..04), /api/users (DEV-05..06), /api/rights (DEV-07)
 
   app.use(notFound);

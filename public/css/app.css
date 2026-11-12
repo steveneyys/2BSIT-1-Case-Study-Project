@@ -98,3 +98,7 @@ dialog input[readonly] { background: var(--wash); color: var(--muted); }
 .row-deleted td { background: var(--wash); color: var(--muted); }
 .row-deleted td:first-child { font-weight: 400; }
 .customers td:nth-child(5) { white-space: nowrap; }
+
+/* Products list (S2-DEV-04) */
+.products th.num, .products td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.products td:first-child { white-space: nowrap; font-weight: 600; }
