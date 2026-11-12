@@ -8,6 +8,7 @@ const { isAdminRole } = require('./permissions');
 // A module without a page shows as a "coming soon" tile.
 const MODULE_PAGES = {
   customer: '/customers.html',
+  product: '/products.html',
 };
 
 const ADMIN_ITEMS = [{ key: 'users', label: 'User Management', href: '/users.html' }];
