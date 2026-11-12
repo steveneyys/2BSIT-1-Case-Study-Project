@@ -78,3 +78,14 @@ dialog input[type=checkbox] { width: 16px; height: 16px; min-height: 0; accent-c
 
 @media (max-width: 720px) { .tabs a, .tabs span { padding: 0 .9rem; } }
 td:nth-child(3) { text-transform: capitalize; }
+
+/* Customers list (S2-DEV-01) */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.customers td:nth-child(3) { text-transform: none; white-space: normal; min-width: 16rem; }
+.customers td:first-child { white-space: nowrap; }
+th .sort { background: none; border: 0; padding: 0; min-height: 44px; font: inherit; color: inherit; cursor: pointer; }
+th .sort:hover { text-decoration: underline; }
+th[aria-sort="ascending"] .sort::after { content: " \2191"; }
+th[aria-sort="descending"] .sort::after { content: " \2193"; }
+.pager { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: .85rem; }
+.pager-btns { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }

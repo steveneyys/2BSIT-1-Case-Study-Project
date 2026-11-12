@@ -6,7 +6,9 @@ const { isAdminRole } = require('./permissions');
 // Fill these in as the module screens are built in Sprints 2 to 4, for example:
 //   customer: '/customers.html'
 // A module without a page shows as a "coming soon" tile.
-const MODULE_PAGES = {};
+const MODULE_PAGES = {
+  customer: '/customers.html',
+};
 
 const ADMIN_ITEMS = [{ key: 'users', label: 'User Management', href: '/users.html' }];
 

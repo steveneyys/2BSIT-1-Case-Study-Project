@@ -7,11 +7,13 @@ const { attachUser } = require('./auth');
 // protected by the API, but pages should not be served to people who may not use them.
 //   roles: null          -> any signed-in user
 //   roles: ['admin',...] -> only those roles
+//   rights: ['CUST_ADD',...] -> also needs at least one of these rights (admins and superadmins always pass)
 // Add a line here for each new screen (Sprint 2+).
 const PAGE_RULES = {
   '/home.html': { roles: null },
   '/users.html': { roles: ['admin', 'superadmin'] },
   '/user-form.html': { roles: ['admin', 'superadmin'] },
+  '/customers.html': { roles: null, rights: ['CUST_ADD', 'CUST_EDIT', 'CUST_DELETE'] },
 };
 
 // Same page, different spelling: /USERS.HTML, /%75sers.html, //users.html, /a/../users.html.
@@ -27,17 +29,23 @@ function normalize(rawPath) {
   return path.posix.normalize(`/${p}`).replace(/\/{2,}/g, '/').toLowerCase();
 }
 
-function guardPages(db, config, rules = PAGE_RULES) {
+function guardPages(db, config, rules = PAGE_RULES, perms = null) {
   const load = attachUser(db, config);
   return (req, res, next) => {
     const key = normalize(req.path);
     if (key === null) return res.status(400).send('Bad request');
     const rule = rules[key];
     if (!rule) return next();
-    load(req, res, (err) => {
+    load(req, res, async (err) => {
       if (err) return next(err);
       if (!req.user) return res.redirect(302, '/login.html');
       if (rule.roles && !rule.roles.includes(req.user.role)) return res.redirect(302, '/home.html');
+      try {
+        // A page that needs rights is refused when the rights cannot be checked (fail closed).
+        if (rule.rights && !(perms && (await perms.can(req.user, ...rule.rights)))) return res.redirect(302, '/home.html');
+      } catch (e) {
+        return next(e);
+      }
       res.set('Cache-Control', 'no-store');
       next();
     });
