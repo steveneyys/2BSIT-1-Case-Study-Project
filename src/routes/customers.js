@@ -3,7 +3,7 @@
 const express = require('express');
 const customerRepo = require('../repositories/customerRepo');
 const { createCustomers, VIEW_RIGHTS } = require('../services/customers');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const { requireRight } = require('../middleware/permissions');
 
 module.exports = function customerRoutes(db, perms) {
@@ -34,6 +34,9 @@ module.exports = function customerRoutes(db, perms) {
   router.get('/:code', handle((req) => customers.get(req.params.code)));
   router.post('/', requireRight(perms, 'CUST_ADD'), handle((req) => customers.create(req.user, req.body)));
   router.put('/:code', requireRight(perms, 'CUST_EDIT'), handle((req) => customers.update(req.user, req.params.code, req.body)));
+
+  router.delete('/:code', requireRight(perms, 'CUST_DELETE'), handle((req) => customers.remove(req.user, req.params.code)));
+  router.post('/:code/restore', requireRole('admin', 'superadmin'), handle((req) => customers.restore(req.user, req.params.code)));
 
   return router;
 };

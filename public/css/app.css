@@ -93,3 +93,8 @@ th[aria-sort="descending"] .sort::after { content: " \2193"; }
 .hint { font-size: .78rem; color: var(--muted); margin-top: .25rem; }
 dialog input[readonly] { background: var(--wash); color: var(--muted); }
 [hidden] { display: none !important; } /* buttons have their own display value, which would otherwise override "hidden" */
+
+/* Soft delete and restore (S2-DEV-03) */
+.row-deleted td { background: var(--wash); color: var(--muted); }
+.row-deleted td:first-child { font-weight: 400; }
+.customers td:nth-child(5) { white-space: nowrap; }

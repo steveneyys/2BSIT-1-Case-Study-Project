@@ -10,8 +10,8 @@ const termEl = document.getElementById('payterm');
 const sizeEl = document.getElementById('pageSize');
 const prevEl = document.getElementById('prev');
 const nextEl = document.getElementById('next');
-const state = { page: 1, sort: 'name', dir: 'asc' };
-let can = { add: false, edit: false, delete: false }; // from the server; it still checks every action
+const state = { page: 1, sort: 'name', dir: 'asc', status: 'active' };
+let can = { add: false, edit: false, delete: false, restore: false, seeDeleted: false }; // from the server; it still checks every action
 let opener = null;
 const dialog = document.getElementById('customer-dialog');
 const form = document.getElementById('customer-form');
@@ -27,7 +27,8 @@ function flash(kind, text) {
   msgEl.textContent = text;
 }
 
-function cols() { return can.edit ? 5 : 4; }
+function showActions() { return can.edit || can.delete || can.restore; }
+function cols() { return 4 + (can.seeDeleted ? 2 : 0) + (showActions() ? 1 : 0); }
 
 function emptyRow(text) {
   rowsEl.replaceChildren();
@@ -43,7 +44,10 @@ function emptyRow(text) {
 function render(data) {
   can = data.can || can;
   document.getElementById('add-btn').hidden = !can.add;
-  document.getElementById('actions-th').hidden = !can.edit;
+  document.getElementById('actions-th').hidden = !showActions();
+  document.getElementById('status-th').hidden = !can.seeDeleted;
+  document.getElementById('stamp-th').hidden = !can.seeDeleted;
+  renderTabs(data.counts);
   const filtered = Boolean(searchEl.value.trim() || termEl.value);
   document.getElementById('clear').hidden = !filtered;
   if (!data.customers.length) {
@@ -63,17 +67,36 @@ function render(data) {
       badge.textContent = TERM_LABEL[c.payterm] || c.payterm || '—';
       termTd.append(badge);
       tr.append(termTd);
-      if (can.edit) {
+      if (can.seeDeleted) {
+        const statusTd = document.createElement('td');
+        const sb = document.createElement('span');
+        sb.className = `badge${c.deleted ? ' blocked' : ''}`;
+        sb.textContent = c.status;
+        statusTd.append(sb);
+        const stampTd = document.createElement('td');
+        stampTd.textContent = c.stamp || '\u2014';
+        tr.append(statusTd, stampTd);
+      }
+      if (c.deleted) tr.className = 'row-deleted';
+      if (showActions()) {
         const actionsTd = document.createElement('td');
         const box = document.createElement('div');
         box.className = 'actions';
-        const edit = document.createElement('button');
-        edit.type = 'button';
-        edit.className = 'btn';
-        edit.textContent = 'Edit';
-        edit.setAttribute('aria-label', `Edit ${c.name}`);
-        edit.addEventListener('click', () => openDialog(c, edit));
-        box.append(edit);
+        const act = (label, cls, fn) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = `btn ${cls}`.trim();
+          b.textContent = label;
+          b.setAttribute('aria-label', `${label} ${c.name}`);
+          b.addEventListener('click', () => fn(b));
+          box.append(b);
+        };
+        if (c.deleted) {
+          if (can.restore) act('Restore', '', (b) => restoreCustomer(c, b));
+        } else {
+          if (can.edit) act('Edit', '', (b) => openDialog(c, b));
+          if (can.delete) act('Delete', 'danger', (b) => askDelete(c, b));
+        }
         actionsTd.append(box);
         tr.append(actionsTd);
       }
@@ -95,7 +118,7 @@ function render(data) {
 async function load() {
   const mine = ++requestId; // ignore an older, slower response
   const params = new URLSearchParams({
-    search: searchEl.value.trim(), payterm: termEl.value, sort: state.sort, dir: state.dir,
+    search: searchEl.value.trim(), payterm: termEl.value, status: state.status, sort: state.sort, dir: state.dir,
     page: String(state.page), pageSize: sizeEl.value,
   });
   try {
@@ -128,6 +151,78 @@ for (const b of document.querySelectorAll('.sort')) {
     state.sort = b.dataset.sort;
     reload();
   });
+}
+
+// ---- Status tabs: Admins only (S2-DEV-03) ----
+const TABS = [['active', 'Active', 'active'], ['deleted', 'Inactive', 'deleted'], ['all', 'All', 'all']];
+function renderTabs(counts) {
+  const box = document.getElementById('status-tabs');
+  box.hidden = !can.seeDeleted || !counts;
+  if (box.hidden) return;
+  box.replaceChildren();
+  for (const [key, label, countKey] of TABS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `${label} ${counts[countKey]}`;
+    b.setAttribute('aria-pressed', String(state.status === key));
+    b.addEventListener('click', () => { state.status = key; reload(); });
+    box.append(b);
+  }
+}
+
+// ---- Delete (with confirmation) and Restore ----
+const confirmDialog = document.getElementById('confirm-dialog');
+let pendingDelete = null;
+let confirmOpener = null;
+
+function askDelete(customer, trigger) {
+  pendingDelete = customer;
+  confirmOpener = trigger;
+  document.getElementById('confirm-text').textContent =
+    `${customer.name} (${customer.code}) will be marked Inactive. An Admin can restore it later.`;
+  document.getElementById('confirm-error').textContent = '';
+  confirmDialog.showModal();
+  document.getElementById('confirm-cancel').focus(); // the safe choice has the focus
+}
+
+document.getElementById('confirm-cancel').addEventListener('click', () => confirmDialog.close());
+confirmDialog.addEventListener('close', () => {
+  const target = confirmOpener && document.contains(confirmOpener) ? confirmOpener : searchEl;
+  target.focus();
+});
+document.getElementById('confirm-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const okBtn = document.getElementById('confirm-ok');
+  okBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/customers/${encodeURIComponent(pendingDelete.code)}`, { method: 'DELETE' });
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      confirmDialog.close();
+      flash('ok', `${pendingDelete.name} was deleted.`);
+      load();
+    } else {
+      document.getElementById('confirm-error').textContent = json.error || 'Could not delete this customer.';
+    }
+  } catch {
+    document.getElementById('confirm-error').textContent = 'Could not reach the server. Please try again.';
+  } finally {
+    okBtn.disabled = false;
+  }
+});
+
+async function restoreCustomer(customer, button) {
+  button.disabled = true;
+  try {
+    const res = await fetch(`/api/customers/${encodeURIComponent(customer.code)}/restore`, { method: 'POST' });
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) { flash('ok', `${customer.name} was restored.`); load(); } else { flash('bad', json.error || 'Could not restore this customer.'); button.disabled = false; }
+  } catch {
+    flash('bad', 'Could not reach the server. Please try again.');
+    button.disabled = false;
+  }
 }
 
 // ---- Add / Edit (S2-DEV-02) ----

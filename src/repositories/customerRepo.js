@@ -14,15 +14,19 @@ const SORTS = {
   term: 'payterm',
 };
 
-async function listCustomers(db, { search, payterm, sort, dir, limit, offset }) {
+// scope: 'active' (the view, which hides deleted rows), 'deleted' or 'all' (the table itself; Admin screens only).
+const SCOPES = { active: '', deleted: 'AND is_deleted', all: '' };
+
+async function listCustomers(db, { search, payterm, scope = 'active', sort, dir, limit, offset }) {
   const column = SORTS[sort] || SORTS.name;
   const direction = dir === 'desc' ? 'DESC' : 'ASC';
   const like = search ? `%${escapeLike(search)}%` : null;
   const { rows } = await db.query(
-    `SELECT custno, custname, address, payterm, count(*) OVER () AS total
-     FROM customer_active
+    `SELECT custno, custname, address, payterm, is_deleted, stamp, count(*) OVER () AS total
+     FROM ${scope === 'active' || !Object.hasOwn(SCOPES, scope) ? 'customer_active' : 'customer'}
      WHERE ($1::text IS NULL OR custno ILIKE $1 OR custname ILIKE $1 OR address ILIKE $1)
        AND ($2::text IS NULL OR payterm = $2)
+       ${Object.hasOwn(SCOPES, scope) ? SCOPES[scope] : ''}
      ORDER BY ${column} ${direction}, custno ASC
      LIMIT $3 OFFSET $4`,
     [like, payterm || null, limit, offset]
@@ -68,4 +72,36 @@ async function updateCustomer(client, custno, { name, address, payterm }) {
   return rows[0] || null;
 }
 
-module.exports = { listCustomers, findCustomer, insertCustomer, updateCustomer, escapeLike, SORTS };
+// Numbers for the Active / Inactive / All tabs (whole table, not narrowed by the search box).
+async function countCustomers(db) {
+  const { rows } = await db.query(
+    'SELECT count(*) FILTER (WHERE NOT is_deleted) AS active, count(*) FILTER (WHERE is_deleted) AS deleted, count(*) AS total FROM customer'
+  );
+  return { active: Number(rows[0].active), deleted: Number(rows[0].deleted), all: Number(rows[0].total) };
+}
+
+// Soft delete: the row stays, with is_deleted = true. The Stamp ("DELETE <name> <date>") is written by the database.
+// The database also refuses if the customer still has active sales (trigger trg_check_children).
+async function softDeleteCustomer(client, custno) {
+  const { rows } = await client.query(
+    `UPDATE customer SET is_deleted = true WHERE custno = $1 AND NOT is_deleted RETURNING ${COLUMNS}`,
+    [custno]
+  );
+  return rows[0] || null;
+}
+
+async function restoreCustomer(client, custno) {
+  const { rows } = await client.query(
+    `UPDATE customer SET is_deleted = false WHERE custno = $1 AND is_deleted RETURNING ${COLUMNS}`,
+    [custno]
+  );
+  return rows[0] || null;
+}
+
+async function countActiveSales(db, custno) {
+  const { rows } = await db.query('SELECT count(*) AS n FROM sales_active WHERE custno = $1', [custno]);
+  return Number(rows[0].n);
+}
+
+module.exports = {
+  countCustomers, softDeleteCustomer, restoreCustomer, countActiveSales, listCustomers, findCustomer, insertCustomer, updateCustomer, escapeLike, SORTS };
