@@ -6,7 +6,7 @@ const { createUserManagement } = require('../src/services/userManagement');
 
 const row = (id, role, extra = {}) => ({
   user_id: id, first_name: `F${id}`, last_name: `L${id}`, email: `u${id}@x.test`,
-  role, is_blocked: false, status: 'active', password_hash: 'secret-hash', ...extra,
+  role, is_blocked: false, status: 'active', password_hash: 'secret-hash', email_verified_at: new Date(), ...extra,
 });
 
 function setup(users) {
@@ -154,8 +154,17 @@ test('approve: only a superadmin can approve; the user can then sign in (status 
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body.user.status, 'active');
   assert.strictEqual(state.sent.length, 1);
-  assert.match(state.sent[0].text, /set-password\.html\?token=/);
-  assert.strictEqual(state.tokens[0].purpose, 'first_password');
+  assert.match(state.sent[0].text, /approved/);
+  assert.strictEqual(state.tokens.length, 0); // they already chose a password when registering
+});
+
+test('approve: refused until the person has confirmed their email', async () => {
+  const { um, state } = setup([...all, row(8, 'user', { status: 'pending', email_verified_at: null })]);
+  const r = await um.approve(SA, 8);
+  assert.strictEqual(r.status, 409);
+  assert.match(r.body.error, /confirm their email/);
+  assert.strictEqual(state.users.find((u) => u.user_id === 8).status, 'pending');
+  assert.strictEqual(state.sent.length, 0);
 });
 
 test('approve: already-active or missing accounts return 409/404', async () => {

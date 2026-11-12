@@ -53,7 +53,7 @@ test('password tokens use purpose + used_at (not a used flag)', async () => {
   assert.match(db.calls[0].sql, /purpose/);
   assert.strictEqual(db.calls[0].params[2], 'reset');
   assert.match(db.calls[1].sql, /used_at = now\(\)/);
-  assert.match(db.calls[2].sql, /used_at IS NULL AND expires_at > now\(\)/);
+  assert.match(db.calls[2].sql, /used_at IS NULL\s+AND expires_at > now\(\)/);
   for (const c of db.calls) assert.doesNotMatch(c.sql, /\bused = /);
 });
 

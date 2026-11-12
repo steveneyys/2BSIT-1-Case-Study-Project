@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const rightsRoutes = require('./routes/rights');
 const menuRoutes = require('./routes/menu');
+const customerRoutes = require('./routes/customers');
 const rightsRepo = require('./repositories/rightsRepo');
 const { createPermissions } = require('./services/permissions');
 const { guardPages } = require('./middleware/pageGuard');
@@ -40,7 +41,9 @@ function createApp({ config, db, googleVerifier }) {
   );
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
-  app.use(guardPages(db, config)); // server-side check for protected pages, before they are served
+  const perms = createPermissions({ db, repo: rightsRepo });
+  app.locals.perms = perms;
+  app.use(guardPages(db, config, undefined, perms)); // server-side check for protected pages, before they are served
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   app.use('/api', attachUser(db, config)); // sets req.user when a valid session cookie is present
@@ -49,9 +52,8 @@ function createApp({ config, db, googleVerifier }) {
   app.use('/api/users', userRoutes(db, config));
   app.use('/api/rights', rightsRoutes(db));
   // Reusable permission checks for later sprints: requireRight(perms, 'RIGHT_CODE') from middleware/permissions.js
-  const perms = createPermissions({ db, repo: rightsRepo });
-  app.locals.perms = perms;
   app.use('/api/menu', menuRoutes(db, perms));
+  app.use('/api/customers', customerRoutes(db, perms));
   // Later PRs mount here: /api/auth (DEV-02..04), /api/users (DEV-05..06), /api/rights (DEV-07)
 
   app.use(notFound);
