@@ -1,0 +1,31 @@
+id,role,planned_day,planned_date,merged_day,merged_date,days_late,pr
+S2-DEV-01,Developer,2,11-04,8,11-12,6,#60 (delivered together with DEV-02)
+S2-DEV-02,Developer,3,11-05,8,11-12,5,"#60, #63"
+S2-DEV-03,Developer,4,11-06,8,11-12,4,#72
+S2-DEV-04,Developer,5,11-09,8,11-12,3,#73
+S2-DEV-05,Developer,6,11-10,8,11-12,2,#74
+S2-DEV-06,Developer,7,11-11,9,11-13,2,#75
+S2-DEV-07,Developer,8,11-12,9,11-13,1,to be merged (not yet on main when this was written)
+S2-DEV-08,Developer,9,11-13,9,11-13,0,to be merged (not yet on main when this was written)
+S2-DBA-01,DB Admin,2,11-04,7,11-11,5,#55
+S2-DBA-02,DB Admin,4,11-06,7,11-11,3,#56
+S2-DBA-03,DB Admin,5,11-09,7,11-11,2,#57
+S2-DBA-04,DB Admin,6,11-10,8,11-12,2,#58
+S2-DBA-05,DB Admin,7,11-11,8,11-12,1,#59
+S2-DBA-06,DB Admin,9,11-13,8,11-12,-1,#61
+S2-TST-01,Tester,3,11-05,8,11-12,5,#62
+S2-TST-02,Tester,5,11-09,8,11-12,3,#65
+S2-TST-03,Tester,7,11-11,8,11-12,1,#68
+S2-TST-04,Tester,8,11-12,8,11-12,0,#69
+S2-TST-05,Tester,9,11-13,8,11-12,-1,#70
+S2-TST-06,Tester,9,11-13,8,11-12,-1,#71
+S2-UIX-01,UI/UX Designer,2,11-04,5,11-07,3,#51
+S2-UIX-02,UI/UX Designer,3,11-05,5,11-07,2,#52
+S2-UIX-03,UI/UX Designer,5,11-09,5,11-07,0,#53
+S2-UIX-04,UI/UX Designer,7,11-11,8,11-12,1,#64
+S2-UIX-05,UI/UX Designer,9,11-13,8,11-12,-1,"#66, #67"
+S2-SM-01,Scrum Master,1,11-03,9,11-13,8,this batch (in review)
+S2-SM-02,Scrum Master,3,11-05,9,11-13,6,this batch (in review)
+S2-SM-03,Scrum Master,5,11-09,9,11-13,4,this batch (in review)
+S2-SM-04,Scrum Master,8,11-12,9,11-13,1,this batch (in review)
+S2-SM-05,Scrum Master,10,11-16,9,11-13,-1,this batch (in review)
