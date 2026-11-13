@@ -11,7 +11,7 @@ const sizeEl = document.getElementById('pageSize');
 const prevEl = document.getElementById('prev');
 const nextEl = document.getElementById('next');
 const state = { page: 1, status: 'active', sort: 'description', dir: 'asc' };
-let can = { add: false, edit: false, delete: false, restore: false, seeDeleted: false }; // from the server; it still checks every action
+let can = { add: false, edit: false, delete: false, restore: false, seeDeleted: false, addPrice: false, editPrice: false, deletePrice: false }; // from the server; it still checks every action
 let opener = null;
 let editingCode = null;
 const dialog = document.getElementById('product-dialog');
@@ -101,12 +101,15 @@ function render(data) {
           b.className = `btn ${cls}`.trim();
           b.textContent = label;
           b.setAttribute('aria-label', `${label} ${p.description || p.code}`);
+          b.dataset.act = label.toLowerCase();
+          b.dataset.code = p.code;
           b.addEventListener('click', () => fn(b));
           box.append(b);
         };
         if (p.deleted) {
           if (can.restore) act('Restore', '', (b) => restoreProduct(p, b));
         } else {
+          act('Prices', '', (b) => openPrices(p, b));
           if (can.edit) act('Edit', '', (b) => openDialog(p, b));
           if (can.delete) act('Delete', 'danger', (b) => askDelete(p, b));
         }
@@ -184,22 +187,34 @@ function renderTabs(counts) {
 
 // ---- Delete (with confirmation) and Restore ----
 const confirmDialog = document.getElementById('confirm-dialog');
-let pendingDelete = null;
+let pendingConfirm = null; // { title, text, okLabel, run: async () => Response, done: (json) => void, fail }
 let confirmOpener = null;
 
-function askDelete(product, trigger) {
-  pendingDelete = product;
+function askConfirm(spec, trigger) {
+  pendingConfirm = spec;
   confirmOpener = trigger;
-  document.getElementById('confirm-text').textContent =
-    `${product.description} (${product.code}) will be marked Inactive. An Admin can restore it later.`;
+  document.getElementById('confirm-title').textContent = spec.title;
+  document.getElementById('confirm-ok').textContent = spec.okLabel;
+  document.getElementById('confirm-text').textContent = spec.text;
   document.getElementById('confirm-error').textContent = '';
   confirmDialog.showModal();
   document.getElementById('confirm-cancel').focus(); // the safe choice has the focus
 }
 
+function askDelete(product, trigger) {
+  askConfirm({
+    title: 'Delete product?',
+    okLabel: 'Delete',
+    text: `${product.description} (${product.code}) will be marked Inactive. An Admin can restore it later.`,
+    run: () => fetch(`/api/products/${encodeURIComponent(product.code)}`, { method: 'DELETE' }),
+    done: () => { flash('ok', `${product.description} was deleted.`); load(); },
+    failText: 'Could not delete this product.',
+  }, trigger);
+}
+
 document.getElementById('confirm-cancel').addEventListener('click', () => confirmDialog.close());
 confirmDialog.addEventListener('close', () => {
-  const target = confirmOpener && document.contains(confirmOpener) ? confirmOpener : searchEl;
+  const target = confirmOpener && document.contains(confirmOpener) ? confirmOpener : (priceDialog.open ? document.getElementById('price-close') : searchEl);
   target.focus();
 });
 document.getElementById('confirm-form').addEventListener('submit', async (e) => {
@@ -207,15 +222,14 @@ document.getElementById('confirm-form').addEventListener('submit', async (e) => 
   const okBtn = document.getElementById('confirm-ok');
   okBtn.disabled = true;
   try {
-    const res = await fetch(`/api/products/${encodeURIComponent(pendingDelete.code)}`, { method: 'DELETE' });
+    const res = await pendingConfirm.run();
     if (res.status === 401) { window.location.href = '/login.html'; return; }
     const json = await res.json().catch(() => ({}));
     if (res.ok) {
       confirmDialog.close();
-      flash('ok', `${pendingDelete.description} was deleted.`);
-      load();
+      pendingConfirm.done(json);
     } else {
-      document.getElementById('confirm-error').textContent = json.error || 'Could not delete this product.';
+      document.getElementById('confirm-error').textContent = json.error || pendingConfirm.failText;
     }
   } catch {
     document.getElementById('confirm-error').textContent = 'Could not reach the server. Please try again.';
@@ -303,5 +317,192 @@ dialog.addEventListener('close', () => {
 document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
 document.getElementById('product-close').addEventListener('click', () => dialog.close());
 document.getElementById('add-btn').addEventListener('click', (e) => openDialog(null, e.currentTarget));
+
+// ---- Price history: add, edit, delete with effective date (S2-DEV-07) ----
+const priceDialog = document.getElementById('price-dialog');
+const priceForm = document.getElementById('price-form');
+const priceRows = document.getElementById('price-rows');
+const priceMsg = document.getElementById('price-msg');
+const PRICE_FIELDS = ['effdate', 'price'];
+const STATE_LABEL = { current: 'Current', scheduled: 'Scheduled', past: 'Past' };
+let priceProduct = null;   // { code, description }
+let priceCan = { add: false, edit: false, delete: false };
+let editingDate = null;    // set while a price is being edited
+let priceOpener = null;
+let priceRequest = 0;
+
+const manilaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()); // YYYY-MM-DD
+
+function priceFlash(kind, text) { priceMsg.className = kind; priceMsg.textContent = text; }
+
+function showPriceErrors(errors = {}) {
+  for (const f of PRICE_FIELDS) {
+    const el = priceForm.querySelector(`[data-pfor="${f}"]`);
+    if (el) el.textContent = errors[f] || '';
+    priceForm.elements[f].setAttribute('aria-invalid', errors[f] ? 'true' : 'false');
+  }
+}
+
+function resetPriceForm() {
+  editingDate = null;
+  priceForm.elements.effdate.value = manilaToday();
+  priceForm.elements.effdate.readOnly = false;
+  priceForm.elements.price.value = '';
+  document.getElementById('price-form-title').textContent = 'Add a price';
+  document.getElementById('price-save').textContent = 'Add price';
+  document.getElementById('price-cancel-edit').hidden = true;
+  document.getElementById('price-form-error').textContent = '';
+  showPriceErrors();
+}
+
+function startEditPrice(row, trigger) {
+  editingDate = row.effdate;
+  priceForm.hidden = false;
+  priceForm.elements.effdate.value = row.effdate;
+  priceForm.elements.effdate.readOnly = true; // the date is the price's identity; to move it, delete and add again
+  priceForm.elements.price.value = row.price.toFixed(2);
+  document.getElementById('price-form-title').textContent = `Edit price effective ${dateFmt.format(new Date(`${row.effdate}T00:00:00Z`))}`;
+  document.getElementById('price-save').textContent = 'Save price';
+  document.getElementById('price-cancel-edit').hidden = false;
+  document.getElementById('price-form-error').textContent = '';
+  showPriceErrors();
+  priceForm.elements.price.focus();
+  priceForm.scrollIntoView({ block: 'nearest' });
+}
+
+function renderPrices(data) {
+  priceCan = data.can;
+  document.getElementById('price-actions-th').hidden = !(priceCan.edit || priceCan.delete);
+  priceForm.hidden = !(priceCan.add || editingDate);
+  priceRows.replaceChildren();
+  if (!data.prices.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 3 + (priceCan.edit || priceCan.delete ? 1 : 0);
+    td.className = 'muted';
+    td.textContent = 'No prices yet.';
+    tr.append(td);
+    priceRows.append(tr);
+    return;
+  }
+  for (const r of data.prices) {
+    const tr = document.createElement('tr');
+    const dateTd = document.createElement('td');
+    dateTd.textContent = dateFmt.format(new Date(`${r.effdate}T00:00:00Z`)); // plain date text, shown in UTC so the day never shifts
+    const priceTd = document.createElement('td');
+    priceTd.className = 'num';
+    priceTd.textContent = money.format(r.price);
+    const stateTd = document.createElement('td');
+    const badge = document.createElement('span');
+    badge.className = `badge${r.state === 'current' ? '' : ' blocked'}`;
+    badge.textContent = STATE_LABEL[r.state];
+    stateTd.append(badge);
+    tr.append(dateTd, priceTd, stateTd);
+    if (priceCan.edit || priceCan.delete) {
+      const td = document.createElement('td');
+      const box = document.createElement('div');
+      box.className = 'actions';
+      const label = dateTd.textContent;
+      const act = (text, cls, fn) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `btn ${cls}`.trim();
+        b.textContent = text;
+        b.setAttribute('aria-label', `${text} price effective ${label}`);
+        b.addEventListener('click', () => fn(b));
+        box.append(b);
+      };
+      if (priceCan.edit) act('Edit', '', (b) => startEditPrice(r, b));
+      if (priceCan.delete) act('Delete', 'danger', (b) => askDeletePrice(r, label, b));
+      td.append(box);
+      tr.append(td);
+    }
+    priceRows.append(tr);
+  }
+}
+
+async function loadPrices() {
+  const mine = ++priceRequest;
+  try {
+    const res = await fetch(`/api/products/${encodeURIComponent(priceProduct.code)}/prices`);
+    if (mine !== priceRequest) return;
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) { priceFlash('bad', json.error || 'Could not load the price history.'); return; }
+    renderPrices(json);
+  } catch {
+    if (mine === priceRequest) priceFlash('bad', 'Could not reach the server. Please try again.');
+  }
+}
+
+function openPrices(product, trigger) {
+  priceOpener = trigger;
+  priceProduct = product;
+  document.getElementById('price-title').textContent = 'Price history';
+  document.getElementById('price-sub').textContent = `${product.description} (${product.code})`;
+  priceMsg.className = '';
+  priceMsg.textContent = '';
+  priceRows.replaceChildren();
+  resetPriceForm();
+  priceForm.hidden = true; // shown once the server confirms the right to add
+  priceDialog.showModal();
+  document.getElementById('price-close').focus();
+  loadPrices();
+}
+
+function askDeletePrice(row, label, trigger) {
+  askConfirm({
+    title: 'Delete price?',
+    okLabel: 'Delete',
+    text: `The ${money.format(row.price)} price effective ${label} will be removed from ${priceProduct.description}'s history.`,
+    run: () => fetch(`/api/products/${encodeURIComponent(priceProduct.code)}/prices/${row.effdate}`, { method: 'DELETE' }),
+    done: () => { priceFlash('ok', `The price effective ${label} was deleted.`); if (editingDate === row.effdate) resetPriceForm(); loadPrices(); load(); },
+    failText: 'Could not delete this price.',
+  }, trigger);
+}
+
+priceForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  showPriceErrors();
+  document.getElementById('price-form-error').textContent = '';
+  const saveBtn = document.getElementById('price-save');
+  saveBtn.disabled = true;
+  const editing = editingDate;
+  const body = { effdate: priceForm.elements.effdate.value, price: priceForm.elements.price.value };
+  try {
+    const res = await fetch(
+      editing ? `/api/products/${encodeURIComponent(priceProduct.code)}/prices/${editing}` : `/api/products/${encodeURIComponent(priceProduct.code)}/prices`,
+      { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      priceFlash('ok', editing ? 'The price was updated.' : 'The price was added.');
+      resetPriceForm();
+      await loadPrices();
+      load(); // the Current price column may have changed
+      priceForm.elements.effdate.focus();
+    } else if (json.errors) {
+      showPriceErrors(json.errors);
+      const first = PRICE_FIELDS.find((f) => json.errors[f]);
+      if (first) priceForm.elements[first].focus();
+    } else {
+      document.getElementById('price-form-error').textContent = json.error || 'Something went wrong. Please try again.';
+    }
+  } catch {
+    document.getElementById('price-form-error').textContent = 'Could not reach the server. Please try again.';
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+document.getElementById('price-cancel-edit').addEventListener('click', () => { resetPriceForm(); priceForm.elements.price.focus(); });
+document.getElementById('price-close').addEventListener('click', () => priceDialog.close());
+priceDialog.addEventListener('close', () => {
+  priceRequest += 1;
+  const again = priceProduct && rowsEl.querySelector(`button[data-act="prices"][data-code="${priceProduct.code}"]`); // the list is redrawn after a change
+  const target = priceOpener && document.contains(priceOpener) ? priceOpener : again || searchEl;
+  target.focus();
+});
 
 load();

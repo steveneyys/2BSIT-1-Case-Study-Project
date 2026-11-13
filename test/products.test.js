@@ -259,3 +259,119 @@ test('SQL: delete/restore touch only the right rows; counts ignore deleted price
   assert.match(l.calls[1].sql, /AND p\.is_deleted/);
   assert.match(l.calls[2].sql, /FROM product_active p/);
 });
+
+// ---- S2-DEV-07: price history ----
+const { validatePrice, parseDate } = require('../src/validators/price');
+const { createPrices } = require('../src/services/prices');
+const priceRepo = require('../src/repositories/priceRepo');
+
+test('parseDate: only real calendar dates', () => {
+  assert.strictEqual(parseDate('2026-02-28'), '2026-02-28');
+  assert.strictEqual(parseDate('2024-02-29'), '2024-02-29');
+  for (const bad of ['2026-02-30', '2026-13-01', '26-01-01', '', null, '2026-1-1', '2026-02-28T00:00']) assert.strictEqual(parseDate(bad), null, String(bad));
+});
+
+test('validatePrice: price is positive, max 8 digits and 2 decimals, numbers only', () => {
+  assert.deepStrictEqual(validatePrice({ price: '1250.5' }).value, { price: '1250.50' });
+  assert.deepStrictEqual(validatePrice({ price: 99999999.99 }).errors, {});
+  for (const bad of ['', '0', '0.00', '-5', '1,250', '12.345', '100000000', 'abc', '1e3', ' ']) assert.ok(validatePrice({ price: bad }).errors.price, JSON.stringify(bad));
+});
+
+test('validatePrice: effective date required on add, real, within 1990-2100', () => {
+  assert.ok(validatePrice({ price: '1' }, { needDate: true }).errors.effdate);
+  assert.ok(validatePrice({ effdate: '2026-02-30', price: '1' }, { needDate: true }).errors.effdate);
+  assert.ok(validatePrice({ effdate: '1950-01-01', price: '1' }, { needDate: true }).errors.effdate);
+  assert.deepStrictEqual(validatePrice({ effdate: '2027-01-15', price: '5' }, { needDate: true }).value, { effdate: '2027-01-15', price: '5.00' });
+  assert.strictEqual(validatePrice({ effdate: 'junk', price: '5' }).errors.effdate, undefined); // edit ignores any date in the body
+});
+
+const LIVE = { prodcode: 'AD0001', description: 'Mouse ', unit: 'ea' };
+const mkPrices = (over = {}) => createPrices({
+  db: fakeDb(),
+  productRepo: { findProduct: async (_c, code) => (code === 'AD0001' ? LIVE : null) },
+  repo: over,
+  perms: perms(['PRICE_ADD', 'PRICE_EDIT']),
+});
+
+test('prices.list: marks current / scheduled / past, newest first; 404 for missing product; rights reported', async () => {
+  const rows = [
+    { effdate: '2027-01-01', unitprice: '15.00', in_effect: false, stamp: 's' },
+    { effdate: '2026-10-01', unitprice: '12.50', in_effect: true, stamp: 's' },
+    { effdate: '2026-01-01', unitprice: '10.00', in_effect: true, stamp: 's' },
+  ];
+  const svc = mkPrices({ listPrices: async () => rows });
+  const r = await svc.list(user(5, 'user'), 'AD0001');
+  assert.deepStrictEqual(r.body.prices.map((p) => [p.effdate, p.price, p.state]), [['2027-01-01', 15, 'scheduled'], ['2026-10-01', 12.5, 'current'], ['2026-01-01', 10, 'past']]);
+  assert.deepStrictEqual(r.body.can, { add: true, edit: true, delete: false });
+  assert.strictEqual(r.body.prices[0].stamp, undefined);                       // Stamp is for Admins only
+  assert.strictEqual((await svc.list(admin(), 'AD0001')).body.prices[0].stamp, 's');
+  assert.strictEqual(r.body.product.description, 'Mouse');
+  assert.strictEqual((await svc.list(user(5, 'user'), 'AD0002')).status, 404);
+  assert.strictEqual((await svc.list(user(5, 'user'), 'bad')).status, 404);
+});
+
+test('prices.list: a product whose prices are all in the future has no current price', async () => {
+  const svc = mkPrices({ listPrices: async () => [{ effdate: '2027-01-01', unitprice: '15', in_effect: false }] });
+  assert.strictEqual((await svc.list(user(5, 'user'), 'AD0001')).body.prices[0].state, 'scheduled');
+});
+
+test('prices.create: inserts; duplicate date -> 409; deleted same-date row is revived; bad input 400; unknown product 404', async () => {
+  let existing = null, inserted = null, revived = null;
+  const svc = mkPrices({
+    findAnyPrice: async () => existing,
+    insertPrice: async (_c, code, d, p) => { inserted = [code, d, p]; return { effdate: d, unitprice: p }; },
+    reviveAndSetPrice: async (_c, code, d, p) => { revived = [code, d, p]; return { effdate: d, unitprice: p }; },
+  });
+  const body = { effdate: '2026-12-01', price: '20' };
+  const r = await svc.create(user(5, 'user'), 'AD0001', body);
+  assert.deepStrictEqual([r.status, r.body.price, inserted], [201, { effdate: '2026-12-01', price: 20 }, ['AD0001', '2026-12-01', '20.00']]);
+  assert.strictEqual(auditSeen, 'u5@x.test');
+  existing = { is_deleted: false };
+  const dup = await svc.create(user(5, 'user'), 'AD0001', body);
+  assert.strictEqual(dup.status, 409);
+  assert.ok(dup.body.errors.effdate);
+  existing = { is_deleted: true };
+  assert.strictEqual((await svc.create(user(5, 'user'), 'AD0001', body)).status, 201);
+  assert.deepStrictEqual(revived, ['AD0001', '2026-12-01', '20.00']);
+  assert.strictEqual((await svc.create(user(5, 'user'), 'AD0001', { effdate: '', price: '' })).status, 400);
+  assert.strictEqual((await svc.create(user(5, 'user'), 'AD0002', body)).status, 404);
+});
+
+test('prices.create: a simultaneous add of the same date (23505) becomes 409', async () => {
+  const svc = mkPrices({ findAnyPrice: async () => null, insertPrice: async () => { throw Object.assign(new Error('dup'), { code: '23505' }); } });
+  assert.strictEqual((await svc.create(user(5, 'user'), 'AD0001', { effdate: '2026-12-01', price: '1' })).status, 409);
+});
+
+test('prices.update / remove: the date comes from the address; 404 when missing, deleted or malformed', async () => {
+  let args;
+  const svc = mkPrices({
+    updatePrice: async (_c, code, d, p) => { args = [code, d, p]; return d === '2026-10-01' ? { effdate: d, unitprice: p } : null; },
+    softDeletePrice: async (_c, code, d) => (d === '2026-10-01' ? { effdate: d, unitprice: '12.50' } : null),
+  });
+  const u = user(5, 'user');
+  const r = await svc.update(u, 'AD0001', '2026-10-01', { effdate: '1999-01-01', price: '13' });
+  assert.deepStrictEqual([r.status, args], [200, ['AD0001', '2026-10-01', '13.00']]);
+  assert.strictEqual((await svc.update(u, 'AD0001', '2026-10-02', { price: '13' })).status, 404);
+  assert.strictEqual((await svc.update(u, 'AD0001', 'junk', { price: '13' })).status, 404);
+  assert.strictEqual((await svc.update(u, 'AD0001', '2026-10-01', { price: '0' })).status, 400);
+  assert.strictEqual((await svc.remove(u, 'AD0001', '2026-10-01')).status, 200);
+  assert.strictEqual((await svc.remove(u, 'AD0001', '2026-10-05')).status, 404);
+  assert.strictEqual((await svc.remove(u, 'bad', '2026-10-01')).status, 404);
+});
+
+test('price SQL: active view only, parameterized, date as text; edits touch live rows only; delete is a soft delete', async () => {
+  const db = recorder([{ effdate: '2026-10-01', unitprice: '1' }]);
+  await priceRepo.listPrices(db, 'AD0001');
+  await priceRepo.updatePrice(db, 'AD0001', '2026-10-01', '5.00');
+  await priceRepo.softDeletePrice(db, 'AD0001', '2026-10-01');
+  await priceRepo.reviveAndSetPrice(db, 'AD0001', '2026-10-01', '5.00');
+  await priceRepo.insertPrice(db, 'AD0001', '2026-10-01', '5.00');
+  assert.match(db.calls[0].sql, /FROM pricehist_active WHERE prodcode = \$1 ORDER BY effdate DESC/);
+  assert.match(db.calls[0].sql, /to_char\(effdate, 'YYYY-MM-DD'\)/);
+  assert.match(db.calls[0].sql, /AT TIME ZONE 'Asia\/Manila'/);
+  assert.match(db.calls[1].sql, /SET unitprice = \$3 WHERE prodcode = \$1 AND effdate = \$2::date AND NOT is_deleted/);
+  assert.match(db.calls[2].sql, /SET is_deleted = true WHERE prodcode = \$1 AND effdate = \$2::date AND NOT is_deleted/);
+  assert.match(db.calls[3].sql, /SET is_deleted = false, unitprice = \$3/);
+  assert.deepStrictEqual(db.calls[4].params, ['2026-10-01', 'AD0001', '5.00']);
+  assert.ok(!db.calls.some((c) => /DELETE FROM/i.test(c.sql)));
+});
