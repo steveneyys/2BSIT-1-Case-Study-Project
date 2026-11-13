@@ -103,6 +103,34 @@
       </div>
     </form>
   </dialog>
+  <dialog id="price-dialog" aria-labelledby="price-title">
+    <div class="head"><h2 id="price-title">Price history</h2><button type="button" class="close" id="price-close" aria-label="Close">&times;</button></div>
+    <p class="muted" id="price-sub"></p>
+    <div id="price-msg" role="status" aria-live="polite"></div>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">Price history, newest first</caption>
+        <thead><tr><th scope="col">Effective date</th><th scope="col" class="num">Unit price</th><th scope="col">Status</th><th scope="col" id="price-actions-th" hidden>Actions</th></tr></thead>
+        <tbody id="price-rows"></tbody>
+      </table>
+    </div>
+    <form id="price-form" novalidate hidden>
+      <hr />
+      <h3 id="price-form-title">Add a price</h3>
+      <label for="p-effdate">Effective date <span class="req">(required)</span></label>
+      <input id="p-effdate" name="effdate" type="date" required min="1990-01-01" max="2100-12-31" />
+      <div class="err" data-pfor="effdate"></div>
+      <label for="p-price">Unit price (PHP) <span class="req">(required)</span></label>
+      <input id="p-price" name="price" inputmode="decimal" autocomplete="off" required maxlength="11" aria-describedby="p-hint" />
+      <div class="hint" id="p-hint">Greater than zero, up to 2 decimals. The price applies from the effective date until a newer one starts.</div>
+      <div class="err" data-pfor="price"></div>
+      <div class="err" id="price-form-error" role="alert"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="price-cancel-edit" hidden>Cancel edit</button>
+        <button class="btn primary" type="submit" id="price-save">Add price</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/js/shell.js"></script>
   <script src="/js/products.js"></script>
 </body>
