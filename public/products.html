@@ -85,6 +85,7 @@
         <option value="ltr">ltr (liter)</option>
       </select>
       <div class="err" data-for="unit"></div>
+      <p class="hint" id="edit-current" hidden></p>
       <div class="err" id="form-error" role="alert"></div>
       <div class="buttons">
         <button class="btn" type="button" id="cancel-btn">Cancel</button>
@@ -106,6 +107,7 @@
   <dialog id="price-dialog" aria-labelledby="price-title">
     <div class="head"><h2 id="price-title">Price history</h2><button type="button" class="close" id="price-close" aria-label="Close">&times;</button></div>
     <p class="muted" id="price-sub"></p>
+    <p id="price-current" class="current-price" aria-live="polite"></p>
     <div id="price-msg" role="status" aria-live="polite"></div>
     <div class="table-wrap">
       <table>

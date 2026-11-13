@@ -260,6 +260,12 @@ function showErrors(errors = {}) {
   }
 }
 
+// One sentence for the price in force today, used wherever a product is shown on its own.
+function currentPriceText(price, date) {
+  if (price === null || price === undefined) return 'No price in effect yet.';
+  return `Current price: ${money.format(price)}, effective ${dateFmt.format(new Date(`${date}T00:00:00Z`))}.`;
+}
+
 function openDialog(product, trigger) {
   opener = trigger;
   editingCode = product ? product.code : null;
@@ -271,6 +277,9 @@ function openDialog(product, trigger) {
     : 'Two letters and four digits, for example AD0001. It cannot be changed later.';
   form.elements.description.value = product ? product.description : '';
   form.elements.unit.value = product ? product.unit : '';
+  const cur = document.getElementById('edit-current');
+  cur.hidden = !product;
+  cur.textContent = product ? `${currentPriceText(product.price, product.priceDate)} Prices are managed under Prices.` : '';
   showErrors();
   document.getElementById('form-error').textContent = '';
   dialog.showModal();
@@ -372,6 +381,10 @@ function startEditPrice(row, trigger) {
 
 function renderPrices(data) {
   priceCan = data.can;
+  const cur = data.prices.find((r) => r.state === 'current');
+  const next = data.prices.filter((r) => r.state === 'scheduled').pop(); // list is newest first, so the last scheduled one starts soonest
+  document.getElementById('price-current').textContent = cur ? currentPriceText(cur.price, cur.effdate) : 'No price in effect yet.';
+  if (next) document.getElementById('price-current').textContent += ` Next: ${money.format(next.price)} from ${dateFmt.format(new Date(`${next.effdate}T00:00:00Z`))}.`;
   document.getElementById('price-actions-th').hidden = !(priceCan.edit || priceCan.delete);
   priceForm.hidden = !(priceCan.add || editingDate);
   priceRows.replaceChildren();
@@ -443,6 +456,7 @@ function openPrices(product, trigger) {
   priceMsg.className = '';
   priceMsg.textContent = '';
   priceRows.replaceChildren();
+  document.getElementById('price-current').textContent = '';
   resetPriceForm();
   priceForm.hidden = true; // shown once the server confirms the right to add
   priceDialog.showModal();

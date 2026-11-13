@@ -102,3 +102,4 @@ dialog input[readonly] { background: var(--wash); color: var(--muted); }
 /* Products list (S2-DEV-04) */
 .products th.num, .products td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .products td:first-child { white-space: nowrap; font-weight: 600; }
+.current-price { font-weight: 600; margin: 0 0 .75rem; }
