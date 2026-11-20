@@ -1,35 +1,55 @@
-# S3-UIX-04 — Hi-Fi HR Screens and Developer Handoff
+# S3-UIX-04 — Hi-Fi HR Mockups and Developer Handoff
 
 ## Purpose
 
-Create high-fidelity designs for the HR screens and document the details developers need to build them.
+This task presents the high-fidelity designs for the Human Resources screens and provides implementation notes for developers.
 
-## High-fidelity screens
+## Hi-fi mockups
 
-Include the final visual designs for:
+Create and export polished screens for:
 
-- Jobs and Departments lists and forms
-- Employee list, forms, and profile
-- Job History timeline and forms
-- Empty, loading, error, confirmation, and restricted access states
+- Jobs list and form
+- Departments list and form
+- Employee list and form
+- Employee profile
+- Job History timeline and form
+- Empty, loading, error, confirmation, and restricted-access states
 
-Follow the approved Hope ERP design system. Keep typography, colors, spacing, buttons, fields, tables, dialogs, and status indicators consistent across the screens.
-
-Suggested filename: `S3-UIX-04-HR-HiFi-Screens.pdf`
+Keep layouts, typography, colors, buttons, forms, tables, dialogs, and status indicators consistent with the approved Hope ERP design system.
 
 ## Developer handoff notes
 
-Document:
+Document the details developers need to build the screens:
 
 - Figma frame names and intended routes or entry points
-- Component behavior and interaction details
-- Field labels, required fields, validation rules, and error placement
-- Table columns, search and sorting behavior, and role-based visibility
+- User flows and control behavior
+- Field labels, required fields, and validation rules
+- Table columns, search and sorting behavior
+- Role-based screen and action visibility
 - Delete, restore, and blocked-delete behavior
-- Loading, empty, success, and failure states
-- Responsive behavior and accessibility notes
+- Empty, loading, success, and failure states
+- Responsive behavior and accessibility requirements
 - Permission and data privacy requirements
 
-Suggested filename: `S3-UIX-04-Developer-Handoff.pdf`
+Protect sensitive employee and job history information. Show it only to users with the required permission.
 
-The hi-fi screens show how the interface looks. The handoff notes explain how it should work.
+## Files in this folder
+
+Add the exported files here:
+
+- `S3-UIX-04-HR-HiFi-Screens.pdf`
+- `S3-UIX-04-Developer-Handoff.pdf`
+
+Optional: Add screen exports as PNG files in a `Screenshots/` subfolder.
+
+## Completion checklist
+
+- [ ] Hi-fi mockups are complete and follow the approved design system.
+- [ ] Required screens and important states are included.
+- [ ] Developer handoff notes describe the interactions and rules.
+- [ ] PDF exports are saved in this folder and open correctly.
+- [ ] Figma link points to the correct S3-UIX-04 frames.
+
+## Figma
+
+Add the link to the S3-UIX-04 frames here.
