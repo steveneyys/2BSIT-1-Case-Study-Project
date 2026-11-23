@@ -62,6 +62,12 @@ const MODULES = [
     ],
   },
   {
+    name: 'jobs', file: '../src/routes/jobs', all: ['JOB_ADD', 'JOB_EDIT', 'JOB_DELETE'],
+    routes: [
+      ['POST', '/', 'JOB_ADD'], ['PUT', '/:code', 'JOB_EDIT'], ['DELETE', '/:code', 'JOB_DELETE'], ['POST', '/:code/restore', 'ADMIN'],
+    ],
+  },
+  {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
     routes: [
       ['POST', '/', 'PROD_ADD'], ['PUT', '/:code', 'PROD_EDIT'], ['DELETE', '/:code', 'PROD_DELETE'], ['POST', '/:code/restore', 'ADMIN'],

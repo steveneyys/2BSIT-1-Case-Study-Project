@@ -12,11 +12,12 @@ module.exports = function menuRoutes(db, perms) {
   // What the main page shows for the signed-in person.
   router.get('/', async (req, res, next) => {
     try {
-      const [modules, mine] = await Promise.all([
+      const [modules, mine, rights] = await Promise.all([
         rightsRepo.listModules(db),
         req.user.role === 'user' ? rightsRepo.listUserModuleCodes(db, req.user.user_id) : [],
+        perms.rightsOf(req.user),
       ]);
-      res.json(buildMenu(req.user, modules, mine));
+      res.json(buildMenu(req.user, modules, mine, rights));
     } catch (err) {
       next(err);
     }
