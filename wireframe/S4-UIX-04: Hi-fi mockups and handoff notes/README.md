@@ -14,4 +14,4 @@ Create high-fidelity mockups and developer handoff notes for the Sprint 4 screen
 Describe how each screen should work and identify any important data shown to the user. Link the relevant wireframes and hi-fi mockups.
 
 ## Figma
-Paste the Figma link for the Sprint 4 hi-fi mockups here.
+(https://www.figma.com/design/HiCl2hqGS1rNeTSvNMc3Fm/Untitled?node-id=18-19181&t=m6aLcP3YwevhtTZV-0)
