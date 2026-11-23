@@ -23,17 +23,17 @@ window.hopeMenu = (async () => {
   who.replaceChildren(who.textContent, dot, meta);
 
   const tabs = document.getElementById('tabs');
-  const add = (label, href) => {
+  const add = (label, href, pages = []) => {
     const el = document.createElement(href ? 'a' : 'span');
     el.textContent = label;
     if (href) {
       el.href = href;
-      if (here === href) { el.classList.add('active'); el.setAttribute('aria-current', 'page'); }
+      if (here === href || pages.includes(here)) { el.classList.add('active'); el.setAttribute('aria-current', 'page'); }
     } else { el.className = 'soon'; el.title = 'Available in a later sprint'; }
     tabs.append(el);
   };
   add('Dashboard', '/home.html');
-  for (const m of menu.modules) add(m.name, m.href);
+  for (const m of menu.modules) add(m.name, m.href, m.pages);
   for (const a of menu.admin) add(a.label, a.href);
 })();
 
