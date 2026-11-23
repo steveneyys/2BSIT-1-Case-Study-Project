@@ -20,4 +20,3 @@ Design the report screens, including filters and print/export actions, and the a
 ## Figma
 Report screens: https://www.figma.com/design/HiCl2hqGS1rNeTSvNMc3Fm/Untitled?node-id=146-940
 
-Audit viewer: Paste the Figma link here.
