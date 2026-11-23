@@ -9,6 +9,8 @@ const { isAdminRole } = require('./permissions');
 const MODULE_PAGES = {
   customer: '/customers.html',
   product: '/products.html',
+  // Human Resources opens on Departments for now; Jobs and Employees join it in the next Sprint 3 tasks.
+  hr: '/departments.html',
 };
 
 const ADMIN_ITEMS = [{ key: 'users', label: 'User Management', href: '/users.html' }];

@@ -56,6 +56,12 @@ const MODULES = [
     ],
   },
   {
+    name: 'departments', file: '../src/routes/departments', all: ['DEPT_ADD', 'DEPT_EDIT', 'DEPT_DELETE'],
+    routes: [
+      ['POST', '/', 'DEPT_ADD'], ['PUT', '/:code', 'DEPT_EDIT'], ['DELETE', '/:code', 'DEPT_DELETE'], ['POST', '/:code/restore', 'ADMIN'],
+    ],
+  },
+  {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
     routes: [
       ['POST', '/', 'PROD_ADD'], ['PUT', '/:code', 'PROD_EDIT'], ['DELETE', '/:code', 'PROD_DELETE'], ['POST', '/:code/restore', 'ADMIN'],
