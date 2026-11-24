@@ -6,6 +6,7 @@
   const PAGES = [
     { label: 'Departments', href: '/departments.html', rights: ['DEPT_ADD', 'DEPT_EDIT', 'DEPT_DELETE'] },
     { label: 'Jobs', href: '/jobs.html', rights: ['JOB_ADD', 'JOB_EDIT', 'JOB_DELETE'] },
+    { label: 'Employees', href: '/employees.html', rights: ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE'] },
   ];
   const nav = document.getElementById('hr-nav');
   if (!nav) return;

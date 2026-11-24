@@ -13,11 +13,12 @@ const MODULE_PAGES = {
 };
 
 // A module with several screens: the tile opens the first screen the person has a right for, and every screen
-// keeps the module tab highlighted. Add Employees here when that screen is built (S3-DEV-03).
+// keeps the module tab highlighted. Employees joined in S3-DEV-03.
 const MODULE_SUBPAGES = {
   hr: [
     { href: '/departments.html', rights: ['DEPT_ADD', 'DEPT_EDIT', 'DEPT_DELETE'] },
     { href: '/jobs.html', rights: ['JOB_ADD', 'JOB_EDIT', 'JOB_DELETE'] },
+    { href: '/employees.html', rights: ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE'] },
   ],
 };
 
