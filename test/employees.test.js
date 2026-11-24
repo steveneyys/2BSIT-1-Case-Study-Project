@@ -86,10 +86,10 @@ test('list: paging numbers and empty result', async () => {
 const res = () => { const r = { code: 200, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; }, redirect(c, to) { r.code = c; r.to = to; return r; }, set() { return r; } }; return r; };
 const go = (mw, req) => new Promise((resolve) => { const r = res(); mw(req, r, () => resolve('next')); setImmediate(() => resolve(r.code)); });
 
-test('API gate: needs at least one employee right; rights from other modules do not count (job history alone does not either)', async () => {
+test('API gate: needs an employee right or View Job History; rights from other modules do not count', async () => {
   const mw = (rights) => requireRight(perms(rights), ...VIEW_RIGHTS);
   assert.strictEqual(await go(mw([]), { user: user(5, 'user') }), 403);
-  assert.strictEqual(await go(mw(['CUST_ADD', 'JOB_ADD', 'DEPT_ADD', 'JOBHIST_VIEW']), { user: user(5, 'user') }), 403);
+  assert.strictEqual(await go(mw(['CUST_ADD', 'JOB_ADD', 'DEPT_ADD', 'JOBHIST_ADD', 'JOBHIST_EDIT', 'JOBHIST_DELETE']), { user: user(5, 'user') }), 403); // write rights of job history alone do not open it
   assert.strictEqual(await go(mw(['EMP_EDIT']), { user: user(5, 'user') }), 'next');
   assert.strictEqual(await go(mw([]), { user: admin() }), 'next');
 });
@@ -338,9 +338,10 @@ test('profile repo: one parameterised read of the table itself (so Admins can op
   assert.deepStrictEqual(db.calls[0].params, ['00001']);
 });
 
-test('page: the profile opens with any employee right, not with job history rights alone', async () => {
+test('page: the profile opens with any employee right or View Job History, not with the other job history rights alone', async () => {
   assert.strictEqual((await page('user', [], '/employee.html', false)).redirect, '/login.html');
-  assert.strictEqual((await page('user', ['JOBHIST_VIEW'], '/employee.html')).redirect, '/home.html');
+  assert.strictEqual((await page('user', ['JOBHIST_ADD', 'JOBHIST_EDIT'], '/employee.html')).redirect, '/home.html');
+  assert.strictEqual((await page('user', ['JOBHIST_VIEW'], '/employee.html')).next, true);
   assert.strictEqual((await page('user', ['EMP_ADD'], '/employee.html')).next, true);
   assert.strictEqual((await page('user', ['EMP_EDIT'], '/EMPLOYEE.html')).next, true);
   assert.strictEqual((await page('admin', [], '/employee.html')).next, true);

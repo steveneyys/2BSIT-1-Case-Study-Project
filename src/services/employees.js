@@ -11,7 +11,9 @@ const STATUSES = ['active', 'deleted', 'all'];
 const GENDERS = ['M', 'F'];
 const EMPLOYMENT = ['employed', 'separated'];
 const PAGE_SIZES = [10, 25, 50, 100];
-const VIEW_RIGHTS = ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE']; // holding any employee right opens the screen
+// Holding any employee right opens the screen; so does View Job History (a person who may see job history must be able
+// to reach an employee to look at). Changing anything still needs the matching Add/Edit/Delete right, checked per route.
+const VIEW_RIGHTS = ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE', 'JOBHIST_VIEW'];
 
 // Turns whatever the browser sent into safe, bounded values. Unknown values fall back to defaults.
 function normalizeQuery(q = {}) {
