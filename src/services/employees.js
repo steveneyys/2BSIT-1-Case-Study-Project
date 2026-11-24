@@ -107,10 +107,18 @@ function createEmployees({ db, repo, perms, historyRepo = null, today = manilaTo
     if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
     const { errors, value } = validateEmployee(body); // any "empno" in the body is ignored
     if (Object.keys(errors).length) return { status: 400, body: { errors } };
-    return db.txAs(auditName(actor), async (client) => {
-      const row = await repo.updateEmployee(client, empno, value);
-      return row ? { status: 200, body: { employee: toItem(row) } } : NOT_FOUND;
-    });
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const row = await repo.updateEmployee(client, empno, value);
+        return row ? { status: 200, body: { employee: toItem(row) } } : NOT_FOUND;
+      });
+    } catch (err) {
+      // Migration 013: the hire date cannot move past existing job history. Say so beside the field.
+      if (/Hire date .* is after existing job history/i.test(String(err.message))) {
+        return { status: 400, body: { errors: { hiredate: 'Hire date cannot be later than this employee\'s existing job history. Change or delete the earlier job history first.' } } };
+      }
+      throw err;
+    }
   }
 
   const fullName = (r) => `${clean(r.firstname)} ${clean(r.lastname)}`.trim() || r.empno;
@@ -134,6 +142,10 @@ function createEmployees({ db, repo, perms, historyRepo = null, today = manilaTo
         return done ? { status: 200, body: { employee: toItem(done) } } : NOT_FOUND;
       });
     } catch (err) {
+      // Migration 014: an active user account is linked to this employee.
+      if (/active user account is linked/i.test(String(err.message))) {
+        return { status: 409, body: { error: 'This employee has a linked user account, so the employee cannot be deleted. Unlink or delete the account first.' } };
+      }
       if (/Cannot delete employee/i.test(String(err.message))) return blocked('This employee');
       throw err;
     }

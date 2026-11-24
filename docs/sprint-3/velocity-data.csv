@@ -1,0 +1,31 @@
+id,role,planned_day,planned_date,merged_day,merged_date,days_late,pr
+S3-DEV-01,Developer,2,11-18,6,11-24,4,#103
+S3-DEV-02,Developer,3,11-19,6,11-24,3,"#104 (titled ""Added joblist"")"
+S3-DEV-03,Developer,4,11-20,6,11-24,2,#105
+S3-DEV-04,Developer,5,11-23,6,11-24,1,#106 (with DEV-05)
+S3-DEV-05,Developer,6,11-24,6,11-24,0,#106 (with DEV-04)
+S3-DEV-06,Developer,7,11-25,6,11-24,-1,#108
+S3-DEV-07,Developer,8,11-26,6,11-24,-2,#114
+S3-DEV-08,Developer,9,11-27,6,11-24,-3,#115
+S3-DBA-01,DB Admin,2,11-18,6,11-24,4,#109
+S3-DBA-02,DB Admin,4,11-20,6,11-24,2,#110
+S3-DBA-03,DB Admin,5,11-23,6,11-24,1,#111
+S3-DBA-04,DB Admin,6,11-24,6,11-24,0,#112
+S3-DBA-05,DB Admin,7,11-25,6,11-24,-1,#113
+S3-DBA-06,DB Admin,9,11-27,,,,not yet
+S3-TST-01,Tester,3,11-19,5,11-23,2,#96
+S3-TST-02,Tester,5,11-23,5,11-23,0,#97
+S3-TST-03,Tester,7,11-25,5,11-23,-2,#98
+S3-TST-04,Tester,8,11-26,5,11-23,-3,#99
+S3-TST-05,Tester,9,11-27,5,11-23,-4,#100
+S3-TST-06,Tester,9,11-27,5,11-23,-4,#101
+S3-UIX-01,UI/UX Designer,2,11-18,4,11-20,2,#85
+S3-UIX-02,UI/UX Designer,3,11-19,4,11-20,1,#86
+S3-UIX-03,UI/UX Designer,4,11-20,4,11-20,0,"#87, #88 (first try #83 reverted by #84)"
+S3-UIX-04,UI/UX Designer,5,11-23,4,11-20,-1,"#89, #90"
+S3-UIX-05,UI/UX Designer,9,11-27,4,11-20,-5,#90 (review plan only)
+S3-SM-01,Scrum Master,1,11-17,,,,this batch
+S3-SM-02,Scrum Master,3,11-19,,,,this batch
+S3-SM-03,Scrum Master,5,11-23,,,,this batch
+S3-SM-04,Scrum Master,8,11-26,,,,this batch
+S3-SM-05,Scrum Master,10,11-30,,,,this batch (draft)
