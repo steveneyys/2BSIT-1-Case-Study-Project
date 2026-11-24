@@ -212,3 +212,65 @@ test('repo: insert and update use parameters; update only touches live rows and 
   assert.doesNotMatch(db.calls[1].sql.split('WHERE')[0], /empno =/);
   assert.match(db.calls[1].sql, /to_char\(sepdate/);
 });
+
+// ================= S3-DEV-05: Delete and Restore =================
+test('remove: soft deletes with the actor as audit name; separation date is never touched', async () => {
+  const seen = {}; let sql = null;
+  const row = { empno: '00015', lastname: 'Cruz', firstname: 'Ana', sepdate: null };
+  const svc = svcWith({
+    findEmployee: async () => row, countActiveChildren: async () => ({ history: 0, sales: 0 }),
+    softDeleteEmployee: async () => ({ ...row, is_deleted: true }),
+  }, seen);
+  const r = await svc.remove(user(5, 'user'), '00015');
+  assert.deepStrictEqual([r.status, r.body.employee.sepdate, seen.name], [200, null, 'u5@x.test']);
+  const db = recorder([{ empno: '00015' }]);
+  await repo.softDeleteEmployee(db, '00015');
+  sql = db.calls[0].sql;
+  assert.match(sql, /SET is_deleted = true WHERE empno = \$1 AND NOT is_deleted/);
+  assert.doesNotMatch(sql, /sepdate\s*=/i);
+});
+
+test('remove: blocked by active job history or sales (clear message, nothing deleted); trigger error is also caught; missing is 404', async () => {
+  let deleted = 0; let children = { history: 2, sales: 1 }; let boom = null;
+  const svc = svcWith({
+    findEmployee: async (_c, n) => (n === '00099' ? null : { empno: n, lastname: 'Cruz', firstname: 'Ana' }),
+    countActiveChildren: async () => children,
+    softDeleteEmployee: async () => { if (boom) throw boom; deleted += 1; return { empno: '00015' }; },
+  });
+  const r = await svc.remove(user(5, 'user'), '00015');
+  assert.strictEqual(r.status, 409);
+  assert.match(r.body.error, /Ana Cruz still has 2 job history records and 1 sales record/);
+  children = { history: 1, sales: 0 };
+  assert.match((await svc.remove(user(5, 'user'), '00015')).body.error, /1 job history record, so/);
+  assert.strictEqual(deleted, 0);
+  children = { history: 0, sales: 0 };
+  boom = new Error('Cannot delete employee row: 1 active related record(s) still exist.');
+  assert.match((await svc.remove(user(5, 'user'), '00015')).body.error, /cannot be deleted/); // a record appeared in between
+  boom = new Error('db down');
+  await assert.rejects(() => svc.remove(user(5, 'user'), '00015'), /db down/);
+  assert.strictEqual((await svc.remove(user(5, 'user'), '00099')).status, 404);
+  assert.strictEqual((await svc.remove(user(5, 'user'), "1'; DROP")).status, 404);
+});
+
+test('restore: Admin only; 404 when not deleted or unknown; 200 otherwise', async () => {
+  let found = { empno: '00015', is_deleted: true };
+  const svc = svcWith({ findAnyEmployee: async () => found, restoreEmployee: async (_c, n) => ({ empno: n, lastname: 'C', firstname: 'A' }) });
+  assert.strictEqual((await svc.restore(user(5, 'user'), '00015')).status, 403);
+  assert.strictEqual((await svc.restore(admin(), '00015')).status, 200);
+  found = { empno: '00015', is_deleted: false };
+  assert.strictEqual((await svc.restore(admin(), '00015')).status, 404);
+  found = null;
+  assert.strictEqual((await svc.restore(admin(), '00015')).status, 404);
+  assert.strictEqual((await svc.restore(admin(), 'bad')).status, 404);
+});
+
+test('repo: children count looks only at active job history and sales; restore only touches deleted rows', async () => {
+  const db = recorder([{ history: '2', sales: '3' }]);
+  assert.deepStrictEqual(await repo.countActiveChildren(db, '00015'), { history: 2, sales: 3 });
+  assert.match(db.calls[0].sql, /jobhistory_active/);
+  assert.match(db.calls[0].sql, /sales_active/);
+  await repo.restoreEmployee(recorder([{}]), '00015');
+  const r = recorder([{}]);
+  await repo.restoreEmployee(r, '00015');
+  assert.match(r.calls[0].sql, /SET is_deleted = false WHERE empno = \$1 AND is_deleted/);
+});

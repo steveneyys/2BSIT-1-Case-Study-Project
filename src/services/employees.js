@@ -105,7 +105,44 @@ function createEmployees({ db, repo, perms }) {
     });
   }
 
-  return { list, create, update };
+  const fullName = (r) => `${clean(r.firstname)} ${clean(r.lastname)}`.trim() || r.empno;
+  const blocked = (name, c) => {
+    const parts = [];
+    if (c && c.history) parts.push(`${c.history} job history record${c.history === 1 ? '' : 's'}`);
+    if (c && c.sales) parts.push(`${c.sales} sales record${c.sales === 1 ? '' : 's'}`);
+    return { status: 409, body: { error: `${name} still has ${parts.length ? parts.join(' and ') : 'active job history or sales records'}, so the employee cannot be deleted.` } };
+  };
+
+  async function remove(actor, empno) {
+    if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const row = await repo.findEmployee(client, empno);
+        if (!row) return NOT_FOUND;
+        // Friendly check first; the database trigger is the final guard if a record appears in between.
+        const c = await repo.countActiveChildren(client, empno);
+        if (c.history + c.sales > 0) return blocked(fullName(row), c);
+        const done = await repo.softDeleteEmployee(client, empno);
+        return done ? { status: 200, body: { employee: toItem(done) } } : NOT_FOUND;
+      });
+    } catch (err) {
+      if (/Cannot delete employee/i.test(String(err.message))) return blocked('This employee');
+      throw err;
+    }
+  }
+
+  async function restore(actor, empno) {
+    if (!isAdminRole(actor)) return { status: 403, body: { error: 'Only an Admin can restore an employee.' } };
+    if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
+    return db.txAs(auditName(actor), async (client) => {
+      const gone = await repo.findAnyEmployee(client, empno);
+      if (!gone || !gone.is_deleted) return NOT_FOUND;
+      const row = await repo.restoreEmployee(client, empno);
+      return row ? { status: 200, body: { employee: toItem(row) } } : NOT_FOUND;
+    });
+  }
+
+  return { list, create, update, remove, restore };
 }
 
 module.exports = { createEmployees, normalizeQuery, VIEW_RIGHTS };

@@ -102,6 +102,17 @@
       </div>
     </form>
   </dialog>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog" id="confirm-form">
+      <div class="head"><h2 id="confirm-title">Delete employee?</h2></div>
+      <p id="confirm-text" class="muted"></p>
+      <div class="err" id="confirm-error" role="alert"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="confirm-cancel">Cancel</button>
+        <button class="btn danger" type="submit" id="confirm-ok">Delete</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/js/shell.js"></script>
   <script src="/js/hr-nav.js"></script>
   <script src="/js/employees.js"></script>

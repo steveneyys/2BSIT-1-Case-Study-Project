@@ -81,4 +81,40 @@ async function updateEmployee(client, empno, v) {
   return rows[0] || null;
 }
 
-module.exports = { listEmployees, countEmployees, findAnyEmployee, insertEmployee, updateEmployee, escapeLike, SORTS };
+async function findEmployee(db, empno) {
+  const { rows } = await db.query(`SELECT ${COLUMNS} FROM employee_active WHERE empno = $1`, [empno]);
+  return rows[0] || null;
+}
+
+// Soft delete: the row stays, with is_deleted = true. The separation date is NOT touched (leaving the company is a different fact).
+// The database refuses if active job history or sales still point at the employee (trg_check_children).
+async function softDeleteEmployee(client, empno) {
+  const { rows } = await client.query(
+    `UPDATE employee SET is_deleted = true WHERE empno = $1 AND NOT is_deleted RETURNING ${COLUMNS}`,
+    [empno]
+  );
+  return rows[0] || null;
+}
+
+async function restoreEmployee(client, empno) {
+  const { rows } = await client.query(
+    `UPDATE employee SET is_deleted = false WHERE empno = $1 AND is_deleted RETURNING ${COLUMNS}`,
+    [empno]
+  );
+  return rows[0] || null;
+}
+
+// Active records that block a delete: { history, sales }.
+async function countActiveChildren(db, empno) {
+  const { rows } = await db.query(
+    `SELECT (SELECT count(*) FROM jobhistory_active WHERE empno = $1) AS history,
+            (SELECT count(*) FROM sales_active WHERE empno = $1) AS sales`,
+    [empno]
+  );
+  return { history: Number(rows[0].history), sales: Number(rows[0].sales) };
+}
+
+module.exports = {
+  listEmployees, countEmployees, findEmployee, findAnyEmployee, insertEmployee, updateEmployee,
+  softDeleteEmployee, restoreEmployee, countActiveChildren, escapeLike, SORTS,
+};
