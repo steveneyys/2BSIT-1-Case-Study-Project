@@ -54,9 +54,15 @@ function render(data) {
     for (const e of data.employees) {
       const tr = document.createElement('tr');
       const name = [e.lastname, e.firstname].filter(Boolean).join(', ');
-      for (const text of [e.empno, name, GENDER[e.gender] || '—', e.birthdate || '—', e.hiredate || '—', e.sepdate || '—']) {
+      for (const [i, text] of [e.empno, name, GENDER[e.gender] || '—', e.birthdate || '—', e.hiredate || '—', e.sepdate || '—'].entries()) {
         const td = document.createElement('td');
-        td.textContent = text;
+        if (i === 0) { // the employee number opens the profile
+          const link = document.createElement('a');
+          link.href = `/employee.html?empno=${encodeURIComponent(e.empno)}`;
+          link.textContent = text;
+          link.setAttribute('aria-label', `Open profile of ${name || e.empno}`);
+          td.append(link);
+        } else td.textContent = text;
         tr.append(td);
       }
       if (can.seeDeleted) {

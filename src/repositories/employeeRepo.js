@@ -81,6 +81,12 @@ async function updateEmployee(client, empno, v) {
   return rows[0] || null;
 }
 
+// One employee for the profile screen, deleted or not (the service decides who may see a deleted one).
+async function findProfile(db, empno) {
+  const { rows } = await db.query(`SELECT ${COLUMNS}, is_deleted, stamp FROM employee WHERE empno = $1`, [empno]);
+  return rows[0] || null;
+}
+
 async function findEmployee(db, empno) {
   const { rows } = await db.query(`SELECT ${COLUMNS} FROM employee_active WHERE empno = $1`, [empno]);
   return rows[0] || null;
@@ -115,6 +121,6 @@ async function countActiveChildren(db, empno) {
 }
 
 module.exports = {
-  listEmployees, countEmployees, findEmployee, findAnyEmployee, insertEmployee, updateEmployee,
+  listEmployees, countEmployees, findProfile, findEmployee, findAnyEmployee, insertEmployee, updateEmployee,
   softDeleteEmployee, restoreEmployee, countActiveChildren, escapeLike, SORTS,
 };

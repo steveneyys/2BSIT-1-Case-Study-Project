@@ -104,6 +104,16 @@ dialog input[readonly] { background: var(--wash); color: var(--muted); }
 .subnav a { padding: .6rem 0; margin-bottom: -1px; border-bottom: 2px solid transparent; font-size: .85rem; color: var(--muted); text-decoration: none; }
 .subnav a:hover { color: var(--ink); }
 .subnav a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--primary); }
+/* Employee profile (S3-DEV-07) */
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem 2rem; margin: 1rem 0 2rem; }
+.profile-grid dt { font: 400 .72rem var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.profile-grid dd { margin: .15rem 0 0; font: 500 .95rem var(--font-body); }
+.timeline { list-style: none; margin: 1rem 0; padding: 0 0 0 1.25rem; border-left: 2px solid var(--border); }
+.timeline li { position: relative; padding: 0 0 1.25rem 1rem; }
+.timeline li::before { content: ""; position: absolute; left: -1.7rem; top: .35rem; width: .7rem; height: .7rem; border-radius: 50%; background: var(--surface, #fff); border: 2px solid var(--muted); }
+.timeline li.current::before { background: var(--primary); border-color: var(--primary); }
+.timeline .when { font: 400 .8rem var(--font-body); color: var(--muted); }
+.timeline .what { font: 600 .95rem var(--font-body); }
 .employees td, .history td { white-space: nowrap; }
 .employees td:nth-child(2) { white-space: normal; min-width: 11rem; }
 .departments td:first-child, .jobs td:first-child { white-space: nowrap; font-weight: 600; }

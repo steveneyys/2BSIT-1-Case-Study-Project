@@ -274,3 +274,74 @@ test('repo: children count looks only at active job history and sales; restore o
   await repo.restoreEmployee(r, '00015');
   assert.match(r.calls[0].sql, /SET is_deleted = false WHERE empno = \$1 AND is_deleted/);
 });
+
+// ================= S3-DEV-07: Profile =================
+const histRows = [
+  { empno: '00001', jobcode: 'MGR', jobdesc: 'Manager ', deptcode: 'IT', deptname: 'Information Tech', effdate: '2030-01-01', salary: '90000.00' },
+  { empno: '00001', jobcode: 'PR2', jobdesc: 'Programmer 2', deptcode: 'IT', deptname: 'Information Tech', effdate: '2010-12-01', salary: '50000.00' },
+  { empno: '00001', jobcode: 'PR1', jobdesc: 'Programmer 1', deptcode: 'IT', deptname: 'Information Tech', effdate: '2010-05-11', salary: '48000.00' },
+];
+const profRow = { empno: '00001', lastname: 'Smith ', firstname: 'John', gender: 'M', birthdate: '1985-02-20', hiredate: '2010-05-11', sepdate: null, is_deleted: false, stamp: 'INSERT x' };
+function profSvc(rights, over = {}, hist = {}) {
+  const seen = { history: 0 };
+  const svc = createEmployees({
+    db: {}, perms: perms(rights), today: () => '2026-11-24',
+    repo: { findProfile: async () => profRow, ...over },
+    historyRepo: { listHistory: async () => { seen.history += 1; return histRows; }, ...hist },
+  });
+  return { svc, seen };
+}
+
+test('profile: with the View Job History right the timeline and salaries come with it; current job and upcoming row are marked', async () => {
+  const { svc } = profSvc(['EMP_EDIT', 'JOBHIST_VIEW']);
+  const b = (await svc.profile(user(5, 'user'), '00001')).body;
+  assert.deepStrictEqual([b.employee.empno, b.employee.lastname, b.employee.employment, b.employee.status], ['00001', 'Smith', 'Employed', undefined]);
+  assert.strictEqual(b.history.current.jobcode, 'PR2');
+  assert.deepStrictEqual(b.history.timeline.map((r) => [r.jobcode, r.current, r.upcoming]), [['MGR', false, true], ['PR2', true, false], ['PR1', false, false]]);
+  assert.strictEqual(b.history.timeline[1].salary, 50000);
+  assert.deepStrictEqual(b.can, { history: true, edit: true });
+});
+
+test('profile: without the right NO job or salary data is sent (and the history is not even read)', async () => {
+  const { svc, seen } = profSvc(['EMP_EDIT', 'JOBHIST_ADD', 'JOBHIST_EDIT', 'JOBHIST_DELETE']); // write rights are not the view right
+  const b = (await svc.profile(user(5, 'user'), '00001')).body;
+  assert.strictEqual(b.history, null);
+  assert.strictEqual(seen.history, 0);
+  assert.doesNotMatch(JSON.stringify(b), /salary|50000|Programmer/i);
+  assert.strictEqual(b.employee.lastname, 'Smith'); // the rest of the profile is still shown
+  assert.strictEqual(b.can.history, false);
+});
+
+test('profile: Admin sees Status and Stamp and may open a deleted employee; users get 404 for it; separated is not deleted', async () => {
+  const a = (await profSvc([]).svc.profile(admin(), '00001')).body;
+  assert.deepStrictEqual([a.employee.status, a.employee.stamp, a.employee.deleted, a.can.history], ['Active', 'INSERT x', false, true]);
+  const gone = { findProfile: async () => ({ ...profRow, is_deleted: true, sepdate: '2024-06-30' }) };
+  const ad = (await profSvc([], gone).svc.profile(admin(), '00001')).body;
+  assert.deepStrictEqual([ad.employee.status, ad.employee.employment, ad.can.edit], ['Inactive', 'Separated', false]);
+  assert.strictEqual((await profSvc(['JOBHIST_VIEW'], gone).svc.profile(user(5, 'user'), '00001')).status, 404);
+  const sep = (await profSvc(['EMP_EDIT'], { findProfile: async () => ({ ...profRow, sepdate: '2024-06-30' }) }).svc.profile(user(5, 'user'), '00001')).body;
+  assert.deepStrictEqual([sep.employee.employment, sep.employee.status], ['Separated', undefined]);
+});
+
+test('profile: unknown or malformed number gives 404; an employee with no job rows has no current job', async () => {
+  assert.strictEqual((await profSvc([], { findProfile: async () => null }).svc.profile(admin(), '00009')).status, 404);
+  assert.strictEqual((await profSvc([]).svc.profile(admin(), "1' OR 1=1")).status, 404);
+  const none = (await profSvc(['JOBHIST_VIEW'], {}, { listHistory: async () => [] }).svc.profile(user(5, 'user'), '00001')).body;
+  assert.deepStrictEqual([none.history.current, none.history.timeline], [null, []]); // TC-JH-24
+});
+
+test('profile repo: one parameterised read of the table itself (so Admins can open deleted employees)', async () => {
+  const db = recorder([{ empno: '00001' }]);
+  await repo.findProfile(db, '00001');
+  assert.match(db.calls[0].sql, /FROM employee WHERE empno = \$1/);
+  assert.match(db.calls[0].sql, /is_deleted, stamp/);
+  assert.deepStrictEqual(db.calls[0].params, ['00001']);
+});
+
+test('page: the profile opens with any employee right, not with job history rights alone', async () => {
+  assert.strictEqual((await page('user', [], '/employee.html', false)).redirect, '/login.html');
+  assert.strictEqual((await page('user', ['JOBHIST_VIEW'], '/employee.html')).redirect, '/home.html');
+  assert.strictEqual((await page('user', ['EMP_ADD'], '/employee.html')).next, true);
+  assert.strictEqual((await page('user', ['EMP_EDIT'], '/EMPLOYEE.html')).next, true);
+  assert.strictEqual((await page('admin', [], '/employee.html')).next, true);
+});
