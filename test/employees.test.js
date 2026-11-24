@@ -346,3 +346,25 @@ test('page: the profile opens with any employee right or View Job History, not w
   assert.strictEqual((await page('user', ['EMP_EDIT'], '/EMPLOYEE.html')).next, true);
   assert.strictEqual((await page('admin', [], '/employee.html')).next, true);
 });
+
+// ================= Database messages from migrations 013 and 014 are explained =================
+test('update: moving the hire date past existing job history shows a clear message beside the field (migration 013)', async () => {
+  const boom = new Error('Hire date 2024-01-01 is after existing job history of employee 00015.');
+  const svc = svcWith({ updateEmployee: async () => { throw boom; } });
+  const r = await svc.update(user(5, 'user'), '00015', good);
+  assert.strictEqual(r.status, 400);
+  assert.match(r.body.errors.hiredate, /existing job history/);
+  await assert.rejects(() => svcWith({ updateEmployee: async () => { throw new Error('db down'); } }).update(user(5, 'user'), '00015', good), /db down/);
+});
+
+test('remove: an employee with a linked user account gets a clear message (migration 014), not the job history wording', async () => {
+  const svc = svcWith({
+    findEmployee: async () => ({ empno: '00015', lastname: 'Cruz', firstname: 'Ana' }),
+    countActiveChildren: async () => ({ history: 0, sales: 0 }),
+    softDeleteEmployee: async () => { throw new Error('Cannot delete employee 00015: an active user account is linked to them.'); },
+  });
+  const r = await svc.remove(user(5, 'user'), '00015');
+  assert.strictEqual(r.status, 409);
+  assert.match(r.body.error, /linked user account/);
+  assert.doesNotMatch(r.body.error, /job history/);
+});
