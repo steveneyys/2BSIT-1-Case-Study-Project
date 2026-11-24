@@ -75,10 +75,10 @@ function render(data) {
         const box = document.createElement('div');
         box.className = 'actions';
         if (can.history) {
-          // The profile and job timeline page arrives in S3-DEV-07; it re-checks the right on the server.
+          // Opens the job history screen (S3-DEV-06); the server re-checks the View Job History right.
           const a = document.createElement('a');
           a.className = 'btn';
-          a.href = `/employee.html?empno=${encodeURIComponent(e.empno)}`;
+          a.href = `/job-history.html?empno=${encodeURIComponent(e.empno)}`;
           a.textContent = 'History';
           a.setAttribute('aria-label', `History for ${name || e.empno}`);
           a.dataset.act = 'history';

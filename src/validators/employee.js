@@ -60,4 +60,4 @@ function validateEmployee(body = {}, { needEmpno = false, today = manilaToday() 
   };
 }
 
-module.exports = { validateEmployee, parseDate, EMPNO_RE };
+module.exports = { validateEmployee, parseDate, manilaToday, EMPNO_RE };
