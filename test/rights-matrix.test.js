@@ -72,6 +72,14 @@ const MODULES = [
     routes: [['POST', '/', 'EMP_ADD'], ['PUT', '/:empno', 'EMP_EDIT'], ['DELETE', '/:empno', 'EMP_DELETE'], ['POST', '/:empno/restore', 'ADMIN']],
   },
   {
+    name: 'job history', file: '../src/routes/jobHistory', all: ['JOBHIST_VIEW', 'JOBHIST_ADD', 'JOBHIST_EDIT', 'JOBHIST_DELETE'],
+    read: '/:empno', readers: ['JOBHIST_VIEW'], // seeing history and salary needs View Job History; the router gate is any job history right
+    routes: [
+      ['POST', '/:empno', 'JOBHIST_ADD'], ['PUT', '/:empno/:jobcode/:effdate', 'JOBHIST_EDIT'],
+      ['DELETE', '/:empno/:jobcode/:effdate', 'JOBHIST_DELETE'], ['POST', '/:empno/:jobcode/:effdate/restore', 'ADMIN'],
+    ],
+  },
+  {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
     routes: [
       ['POST', '/', 'PROD_ADD'], ['PUT', '/:code', 'PROD_EDIT'], ['DELETE', '/:code', 'PROD_DELETE'], ['POST', '/:code/restore', 'ADMIN'],
@@ -119,15 +127,17 @@ for (const mod of MODULES) {
 
 test('reading is open to anyone holding at least one right of the module, and to nobody else', async () => {
   for (const mod of MODULES) {
+    const readPath = mod.read || '/';
     for (const right of mod.all) {
       const { fake, build } = load(mod.file);
       build({}, perms([right]));
-      const get = fake.routes.find((r) => r.method === 'GET' && r.path === '/');
-      assert.strictEqual(await runChain([...fake.uses, ...get.fns], { user: person('user') }), 'pass', `${mod.name} ${right}`);
+      const get = fake.routes.find((r) => r.method === 'GET' && r.path === readPath);
+      const expected = !mod.readers || mod.readers.includes(right) ? 'pass' : 403;
+      assert.strictEqual(await runChain([...fake.uses, ...get.fns], { user: person('user') }), expected, `${mod.name} ${right}`);
     }
     const { fake, build } = load(mod.file);
     build({}, perms(['HR_ADD', 'USER_VIEW']));
-    const get = fake.routes.find((r) => r.method === 'GET' && r.path === '/');
+    const get = fake.routes.find((r) => r.method === 'GET' && r.path === readPath);
     assert.strictEqual(await runChain([...fake.uses, ...get.fns], { user: person('user') }), 403, `${mod.name} with other modules' rights`);
   }
 });
