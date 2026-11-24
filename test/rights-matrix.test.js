@@ -68,6 +68,10 @@ const MODULES = [
     ],
   },
   {
+    name: 'employees', file: '../src/routes/employees', all: ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE'],
+    routes: [], // Add, Edit, Delete and Restore arrive in S3-DEV-04 and S3-DEV-05: list them here when they do
+  },
+  {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
     routes: [
       ['POST', '/', 'PROD_ADD'], ['PUT', '/:code', 'PROD_EDIT'], ['DELETE', '/:code', 'PROD_DELETE'], ['POST', '/:code/restore', 'ADMIN'],

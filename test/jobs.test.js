@@ -225,7 +225,7 @@ test('menu: the HR tile opens the first Human Resources screen the person may us
   assert.strictEqual(href('user', ['DEPT_ADD']).href, '/departments.html');
   assert.strictEqual(href('user', ['JOB_ADD', 'DEPT_ADD']).href, '/departments.html');
   assert.strictEqual(href('admin', []).href, '/departments.html');
-  assert.deepStrictEqual(href('user', ['JOB_ADD']).pages, ['/departments.html', '/jobs.html']);
+  assert.deepStrictEqual(href('user', ['JOB_ADD']).pages, ['/departments.html', '/jobs.html', '/employees.html']);
   assert.strictEqual(buildMenu(user(5, 'user'), hr, ['HR']).modules[0].href, '/departments.html'); // rights not supplied: first screen
   assert.strictEqual(buildMenu(user(5, 'user'), [{ module_code: 'CUSTOMER', module_name: 'C' }], ['CUSTOMER'], { all: false, codes: new Set() }).modules[0].pages, undefined);
 });
