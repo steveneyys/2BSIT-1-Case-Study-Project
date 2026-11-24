@@ -3,7 +3,7 @@ const { makeClient } = require('./lib/db');
 
 const EXPECT = {
   customer: 92, product: 65, sales: 124, salesdetail: 313, payment: 165,
-  pricehist: 93, jobhistory: 54, job: 14,
+  pricehist: 93, jobhistory: 71, job: 17, employee: 42, department: 10,
   role: 3, module: 5, right_catalog: 36,
 };
 
