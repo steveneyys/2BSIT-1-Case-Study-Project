@@ -1,5 +1,7 @@
 'use strict';
 
+const { validateEmployee, EMPNO_RE } = require('../validators/employee');
+const { auditName } = require('./rights');
 const { isAdminRole } = require('./permissions');
 
 const SORT_KEYS = ['empno', 'name', 'gender', 'hired', 'separated'];
@@ -65,7 +67,82 @@ function createEmployees({ db, repo, perms }) {
     };
   }
 
-  return { list };
+  const NOT_FOUND = { status: 404, body: { error: 'Employee not found.' } };
+  const takenResponse = (row) => ({
+    status: 409,
+    body: {
+      errors: {
+        empno: row.is_deleted
+          ? 'That employee number belongs to a deleted employee. An Admin can restore it, or use another number.'
+          : 'That employee number already exists.',
+      },
+    },
+  });
+
+  // The route has already checked EMP_ADD / EMP_EDIT. The audit log and the Stamp column name the real person.
+  async function create(actor, body) {
+    const { errors, value } = validateEmployee(body, { needEmpno: true });
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const taken = await repo.findAnyEmployee(client, value.empno);
+        if (taken) return takenResponse(taken);
+        return { status: 201, body: { employee: toItem(await repo.insertEmployee(client, value)) } };
+      });
+    } catch (err) {
+      if (err.code === '23505') return takenResponse({ is_deleted: false }); // same number added at the same moment
+      throw err;
+    }
+  }
+
+  async function update(actor, empno, body) {
+    if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
+    const { errors, value } = validateEmployee(body); // any "empno" in the body is ignored
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    return db.txAs(auditName(actor), async (client) => {
+      const row = await repo.updateEmployee(client, empno, value);
+      return row ? { status: 200, body: { employee: toItem(row) } } : NOT_FOUND;
+    });
+  }
+
+  const fullName = (r) => `${clean(r.firstname)} ${clean(r.lastname)}`.trim() || r.empno;
+  const blocked = (name, c) => {
+    const parts = [];
+    if (c && c.history) parts.push(`${c.history} job history record${c.history === 1 ? '' : 's'}`);
+    if (c && c.sales) parts.push(`${c.sales} sales record${c.sales === 1 ? '' : 's'}`);
+    return { status: 409, body: { error: `${name} still has ${parts.length ? parts.join(' and ') : 'active job history or sales records'}, so the employee cannot be deleted.` } };
+  };
+
+  async function remove(actor, empno) {
+    if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const row = await repo.findEmployee(client, empno);
+        if (!row) return NOT_FOUND;
+        // Friendly check first; the database trigger is the final guard if a record appears in between.
+        const c = await repo.countActiveChildren(client, empno);
+        if (c.history + c.sales > 0) return blocked(fullName(row), c);
+        const done = await repo.softDeleteEmployee(client, empno);
+        return done ? { status: 200, body: { employee: toItem(done) } } : NOT_FOUND;
+      });
+    } catch (err) {
+      if (/Cannot delete employee/i.test(String(err.message))) return blocked('This employee');
+      throw err;
+    }
+  }
+
+  async function restore(actor, empno) {
+    if (!isAdminRole(actor)) return { status: 403, body: { error: 'Only an Admin can restore an employee.' } };
+    if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
+    return db.txAs(auditName(actor), async (client) => {
+      const gone = await repo.findAnyEmployee(client, empno);
+      if (!gone || !gone.is_deleted) return NOT_FOUND;
+      const row = await repo.restoreEmployee(client, empno);
+      return row ? { status: 200, body: { employee: toItem(row) } } : NOT_FOUND;
+    });
+  }
+
+  return { list, create, update, remove, restore };
 }
 
 module.exports = { createEmployees, normalizeQuery, VIEW_RIGHTS };

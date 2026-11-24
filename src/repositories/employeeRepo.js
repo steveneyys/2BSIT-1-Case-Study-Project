@@ -53,4 +53,68 @@ async function countEmployees(db) {
   return { active: Number(rows[0].active), deleted: Number(rows[0].deleted), all: Number(rows[0].total) };
 }
 
-module.exports = { listEmployees, countEmployees, escapeLike, SORTS };
+const COLUMNS = `empno, lastname, firstname, gender, to_char(birthdate, 'YYYY-MM-DD') AS birthdate,
+  to_char(hiredate, 'YYYY-MM-DD') AS hiredate, to_char(sepdate, 'YYYY-MM-DD') AS sepdate`;
+
+// Looks at the table itself so Add can tell "taken" from "taken by a deleted employee".
+async function findAnyEmployee(db, empno) {
+  const { rows } = await db.query('SELECT empno, is_deleted FROM employee WHERE empno = $1', [empno]);
+  return rows[0] || null;
+}
+
+async function insertEmployee(client, v) {
+  const { rows } = await client.query(
+    `INSERT INTO employee (empno, lastname, firstname, gender, birthdate, hiredate, sepdate)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${COLUMNS}`,
+    [v.empno, v.lastname, v.firstname, v.gender, v.birthdate, v.hiredate, v.sepdate]
+  );
+  return rows[0];
+}
+
+// Only live rows can be edited; the number never changes. Returns null if the employee is missing or deleted.
+async function updateEmployee(client, empno, v) {
+  const { rows } = await client.query(
+    `UPDATE employee SET lastname = $2, firstname = $3, gender = $4, birthdate = $5, hiredate = $6, sepdate = $7
+     WHERE empno = $1 AND NOT is_deleted RETURNING ${COLUMNS}`,
+    [empno, v.lastname, v.firstname, v.gender, v.birthdate, v.hiredate, v.sepdate]
+  );
+  return rows[0] || null;
+}
+
+async function findEmployee(db, empno) {
+  const { rows } = await db.query(`SELECT ${COLUMNS} FROM employee_active WHERE empno = $1`, [empno]);
+  return rows[0] || null;
+}
+
+// Soft delete: the row stays, with is_deleted = true. The separation date is NOT touched (leaving the company is a different fact).
+// The database refuses if active job history or sales still point at the employee (trg_check_children).
+async function softDeleteEmployee(client, empno) {
+  const { rows } = await client.query(
+    `UPDATE employee SET is_deleted = true WHERE empno = $1 AND NOT is_deleted RETURNING ${COLUMNS}`,
+    [empno]
+  );
+  return rows[0] || null;
+}
+
+async function restoreEmployee(client, empno) {
+  const { rows } = await client.query(
+    `UPDATE employee SET is_deleted = false WHERE empno = $1 AND is_deleted RETURNING ${COLUMNS}`,
+    [empno]
+  );
+  return rows[0] || null;
+}
+
+// Active records that block a delete: { history, sales }.
+async function countActiveChildren(db, empno) {
+  const { rows } = await db.query(
+    `SELECT (SELECT count(*) FROM jobhistory_active WHERE empno = $1) AS history,
+            (SELECT count(*) FROM sales_active WHERE empno = $1) AS sales`,
+    [empno]
+  );
+  return { history: Number(rows[0].history), sales: Number(rows[0].sales) };
+}
+
+module.exports = {
+  listEmployees, countEmployees, findEmployee, findAnyEmployee, insertEmployee, updateEmployee,
+  softDeleteEmployee, restoreEmployee, countActiveChildren, escapeLike, SORTS,
+};

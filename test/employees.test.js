@@ -125,3 +125,152 @@ test('menu: a person with only employee rights lands on Employees; with departme
   assert.strictEqual(both.modules[0].href, '/departments.html');
   assert.ok(both.modules[0].pages.includes('/employees.html'));
 });
+
+// ================= S3-DEV-04: Add and Edit =================
+const { validateEmployee, parseDate } = require('../src/validators/employee');
+const TODAY = '2026-11-24';
+const good = { empno: '00015', lastname: ' Cruz ', firstname: 'Ana', gender: 'f', birthdate: '1990-01-02', hiredate: '2020-03-04', sepdate: '' };
+
+test('validateEmployee: a good record is trimmed and normalised; empty separation date becomes null', () => {
+  const r = validateEmployee(good, { needEmpno: true, today: TODAY });
+  assert.deepStrictEqual(r.errors, {});
+  assert.deepStrictEqual(r.value, { empno: '00015', lastname: 'Cruz', firstname: 'Ana', gender: 'F', birthdate: '1990-01-02', hiredate: '2020-03-04', sepdate: null });
+  assert.deepStrictEqual(validateEmployee({ ...good, empno: '99999' }, { today: TODAY }).value.empno, undefined); // edit ignores any number in the body
+});
+
+test('validateEmployee: required fields, lengths, gender, number format', () => {
+  assert.deepStrictEqual(Object.keys(validateEmployee({}, { needEmpno: true, today: TODAY }).errors).sort(), ['birthdate', 'empno', 'firstname', 'gender', 'hiredate', 'lastname']);
+  for (const bad of ['1', '123456', 'ABCDE', '12 45', '１２３４５']) assert.ok(validateEmployee({ ...good, empno: bad }, { needEmpno: true, today: TODAY }).errors.empno, bad);
+  assert.ok(validateEmployee({ ...good, lastname: 'x'.repeat(16) }, { today: TODAY }).errors.lastname); // TC-EMP-18
+  assert.ok(validateEmployee({ ...good, firstname: 'x'.repeat(16) }, { today: TODAY }).errors.firstname);
+  assert.ok(validateEmployee({ ...good, lastname: '   ' }, { today: TODAY }).errors.lastname); // TC-EMP-14
+  assert.ok(validateEmployee({ ...good, firstname: '' }, { today: TODAY }).errors.firstname); // TC-EMP-15
+  assert.match(validateEmployee({ ...good, gender: 'X' }, { today: TODAY }).errors.gender, /M or F/); // TC-EMP-17
+  assert.strictEqual(validateEmployee({ ...good, lastname: 'x'.repeat(15) }, { today: TODAY }).errors.lastname, undefined);
+});
+
+test('validateEmployee: date rules', () => {
+  const v = (o) => validateEmployee({ ...good, ...o }, { today: TODAY }).errors;
+  assert.ok(v({ hiredate: '1989-12-31' }).hiredate); // hire before birth, TC-EMP-20
+  assert.ok(v({ hiredate: '1990-01-02' }).hiredate); // same day as birth
+  assert.ok(v({ sepdate: '2020-03-03' }).sepdate); // before hire, TC-EMP-21
+  assert.deepStrictEqual(v({ sepdate: '2020-03-04' }), {}); // on the hire date is fine, TC-EMP-22
+  assert.deepStrictEqual(v({ sepdate: '2024-01-01' }), {});
+  assert.ok(v({ birthdate: '2026-11-25' }).birthdate); // future birth date
+  for (const bad of ['2026-02-30', '2026-13-01', '26-1-1', 'tomorrow', '1899-01-01']) assert.ok(v({ birthdate: bad }).birthdate, bad);
+  assert.ok(v({ sepdate: 'soon' }).sepdate);
+  assert.strictEqual(parseDate('2024-02-29'), '2024-02-29');
+  assert.strictEqual(parseDate('2023-02-29'), null);
+});
+
+const fakeDb = (seen = {}) => ({ txAs: async (name, fn) => { seen.name = name; return fn({}); } });
+const svcWith = (repoOver, seen) => createEmployees({ db: fakeDb(seen), repo: repoOver, perms: perms([]) });
+
+test('create: 201 with the actor as audit name; taken, deleted and racing numbers give 409; bad input gives 400 and writes nothing', async () => {
+  const seen = {};
+  let existing = null; let inserted = null; let boom = null;
+  const svc = svcWith({
+    findAnyEmployee: async () => existing,
+    insertEmployee: async (_c, v) => { if (boom) throw boom; inserted = v; return { ...v }; },
+  }, seen);
+  const r = await svc.create(user(5, 'user'), good);
+  assert.deepStrictEqual([r.status, r.body.employee.empno, r.body.employee.lastname, inserted.gender], [201, '00015', 'Cruz', 'F']);
+  assert.strictEqual(seen.name, 'u5@x.test');
+  existing = { is_deleted: false };
+  assert.match((await svc.create(user(5, 'user'), good)).body.errors.empno, /already exists/); // TC-EMP-19
+  existing = { is_deleted: true };
+  const d = await svc.create(user(5, 'user'), good);
+  assert.deepStrictEqual([d.status, /deleted employee/.test(d.body.errors.empno)], [409, true]);
+  existing = null; inserted = null; boom = Object.assign(new Error('dup'), { code: '23505' });
+  assert.strictEqual((await svc.create(user(5, 'user'), good)).status, 409);
+  boom = new Error('db down');
+  await assert.rejects(() => svc.create(user(5, 'user'), good), /db down/);
+  boom = null;
+  const bad = await svc.create(user(5, 'user'), { ...good, gender: 'Z', lastname: '' });
+  assert.deepStrictEqual([bad.status, Object.keys(bad.body.errors).sort(), inserted], [400, ['gender', 'lastname'], null]);
+});
+
+test('update: number comes from the address; deleted or missing employee gives 404; bad input gives 400', async () => {
+  let args = null; let row = { empno: '00015', lastname: 'Cruz', firstname: 'Ana', gender: 'F', birthdate: '1990-01-02', hiredate: '2020-03-04', sepdate: '2024-01-01' };
+  const svc = svcWith({ updateEmployee: async (_c, empno, v) => { args = [empno, v]; return row; } });
+  const r = await svc.update(user(5, 'user'), '00015', { ...good, empno: '99999', sepdate: '2024-01-01' });
+  assert.deepStrictEqual([r.status, args[0], args[1].empno, args[1].sepdate], [200, '00015', undefined, '2024-01-01']);
+  row = null;
+  assert.strictEqual((await svc.update(user(5, 'user'), '00015', good)).status, 404);
+  assert.strictEqual((await svc.update(user(5, 'user'), "0001'; --", good)).status, 404);
+  args = null;
+  const bad = await svc.update(user(5, 'user'), '00015', { ...good, lastname: '' });
+  assert.deepStrictEqual([bad.status, args], [400, null]);
+});
+
+test('repo: insert and update use parameters; update only touches live rows and never the number', async () => {
+  const db = recorder([{ empno: '00015' }]);
+  await repo.insertEmployee(db, { empno: '00015', lastname: 'Cruz', firstname: 'Ana', gender: 'F', birthdate: '1990-01-02', hiredate: '2020-03-04', sepdate: null });
+  assert.deepStrictEqual(db.calls[0].params, ['00015', 'Cruz', 'Ana', 'F', '1990-01-02', '2020-03-04', null]);
+  await repo.updateEmployee(db, '00015', { lastname: 'C', firstname: 'A', gender: 'M', birthdate: '1990-01-02', hiredate: '2020-03-04', sepdate: '2024-01-01' });
+  assert.match(db.calls[1].sql, /WHERE empno = \$1 AND NOT is_deleted/);
+  assert.doesNotMatch(db.calls[1].sql.split('WHERE')[0], /empno =/);
+  assert.match(db.calls[1].sql, /to_char\(sepdate/);
+});
+
+// ================= S3-DEV-05: Delete and Restore =================
+test('remove: soft deletes with the actor as audit name; separation date is never touched', async () => {
+  const seen = {}; let sql = null;
+  const row = { empno: '00015', lastname: 'Cruz', firstname: 'Ana', sepdate: null };
+  const svc = svcWith({
+    findEmployee: async () => row, countActiveChildren: async () => ({ history: 0, sales: 0 }),
+    softDeleteEmployee: async () => ({ ...row, is_deleted: true }),
+  }, seen);
+  const r = await svc.remove(user(5, 'user'), '00015');
+  assert.deepStrictEqual([r.status, r.body.employee.sepdate, seen.name], [200, null, 'u5@x.test']);
+  const db = recorder([{ empno: '00015' }]);
+  await repo.softDeleteEmployee(db, '00015');
+  sql = db.calls[0].sql;
+  assert.match(sql, /SET is_deleted = true WHERE empno = \$1 AND NOT is_deleted/);
+  assert.doesNotMatch(sql, /sepdate\s*=/i);
+});
+
+test('remove: blocked by active job history or sales (clear message, nothing deleted); trigger error is also caught; missing is 404', async () => {
+  let deleted = 0; let children = { history: 2, sales: 1 }; let boom = null;
+  const svc = svcWith({
+    findEmployee: async (_c, n) => (n === '00099' ? null : { empno: n, lastname: 'Cruz', firstname: 'Ana' }),
+    countActiveChildren: async () => children,
+    softDeleteEmployee: async () => { if (boom) throw boom; deleted += 1; return { empno: '00015' }; },
+  });
+  const r = await svc.remove(user(5, 'user'), '00015');
+  assert.strictEqual(r.status, 409);
+  assert.match(r.body.error, /Ana Cruz still has 2 job history records and 1 sales record/);
+  children = { history: 1, sales: 0 };
+  assert.match((await svc.remove(user(5, 'user'), '00015')).body.error, /1 job history record, so/);
+  assert.strictEqual(deleted, 0);
+  children = { history: 0, sales: 0 };
+  boom = new Error('Cannot delete employee row: 1 active related record(s) still exist.');
+  assert.match((await svc.remove(user(5, 'user'), '00015')).body.error, /cannot be deleted/); // a record appeared in between
+  boom = new Error('db down');
+  await assert.rejects(() => svc.remove(user(5, 'user'), '00015'), /db down/);
+  assert.strictEqual((await svc.remove(user(5, 'user'), '00099')).status, 404);
+  assert.strictEqual((await svc.remove(user(5, 'user'), "1'; DROP")).status, 404);
+});
+
+test('restore: Admin only; 404 when not deleted or unknown; 200 otherwise', async () => {
+  let found = { empno: '00015', is_deleted: true };
+  const svc = svcWith({ findAnyEmployee: async () => found, restoreEmployee: async (_c, n) => ({ empno: n, lastname: 'C', firstname: 'A' }) });
+  assert.strictEqual((await svc.restore(user(5, 'user'), '00015')).status, 403);
+  assert.strictEqual((await svc.restore(admin(), '00015')).status, 200);
+  found = { empno: '00015', is_deleted: false };
+  assert.strictEqual((await svc.restore(admin(), '00015')).status, 404);
+  found = null;
+  assert.strictEqual((await svc.restore(admin(), '00015')).status, 404);
+  assert.strictEqual((await svc.restore(admin(), 'bad')).status, 404);
+});
+
+test('repo: children count looks only at active job history and sales; restore only touches deleted rows', async () => {
+  const db = recorder([{ history: '2', sales: '3' }]);
+  assert.deepStrictEqual(await repo.countActiveChildren(db, '00015'), { history: 2, sales: 3 });
+  assert.match(db.calls[0].sql, /jobhistory_active/);
+  assert.match(db.calls[0].sql, /sales_active/);
+  await repo.restoreEmployee(recorder([{}]), '00015');
+  const r = recorder([{}]);
+  await repo.restoreEmployee(r, '00015');
+  assert.match(r.calls[0].sql, /SET is_deleted = false WHERE empno = \$1 AND is_deleted/);
+});
