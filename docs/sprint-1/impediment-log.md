@@ -1,7 +1,7 @@
 # Sprint 1 – Impediment Log
 
 **Task:** S1-SM-04 · Keep adding rows during the sprint. An impediment is anything that slows or stops someone;
-the Scrum Master's job is to get it removed. Dates are `YYYY-MM-DD`. Owner is a role.
+the Scrum Master's job is to get it removed Dates are `YYYY-MM-DD`. Owner is a role.
 
 | ID | Raised | Raised by | Impediment | Impact | Owner | Status | Resolution / next step | Resolved |
 |---|---|---|---|---|---|---|---|---|
