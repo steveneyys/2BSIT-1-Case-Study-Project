@@ -1,6 +1,6 @@
 'use strict';
 
-// Employees (S3-DEV-03): list with search, filters, sort and paging. Add/Edit/Delete come in S3-DEV-04 and S3-DEV-05.
+// Employees (S3-DEV-03 list, S3-DEV-04 Add and Edit). Delete and Restore come in S3-DEV-05.
 // The server checks every right; this file only draws what it is given. All text goes in with textContent.
 // Salary and job history are never in this list (View Job History right, S3-DEV-08).
 const rowsEl = document.getElementById('rows');
@@ -13,12 +13,17 @@ const prevEl = document.getElementById('prev');
 const nextEl = document.getElementById('next');
 const state = { page: 1, sort: 'empno', dir: 'asc', status: 'active' };
 let can = { add: false, edit: false, delete: false, restore: false, seeDeleted: false, history: false };
+let opener = null;
+let editingEmpno = null;
 let timer = null;
 let requestId = 0;
 
 function flash(kind, text) { msgEl.className = kind; msgEl.textContent = text; }
 function clearMsg() { msgEl.className = ''; msgEl.textContent = ''; }
 function showActions() { return can.history || can.edit || can.delete || can.restore; }
+const FIELDS = ['empno', 'lastname', 'firstname', 'gender', 'birthdate', 'hiredate', 'sepdate'];
+const dialog = document.getElementById('employee-dialog');
+const form = document.getElementById('employee-form');
 function cols() { return 6 + (can.seeDeleted ? 2 : 0) + (showActions() ? 1 : 0); }
 function filtered() { return Boolean(searchEl.value.trim() || genderEl.value || employmentEl.value); }
 const GENDER = { M: 'Male', F: 'Female' };
@@ -79,6 +84,17 @@ function render(data) {
           a.dataset.act = 'history';
           a.dataset.empno = e.empno;
           box.append(a);
+        }
+        if (can.edit && !e.deleted) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn';
+          b.textContent = 'Edit';
+          b.setAttribute('aria-label', `Edit ${name || e.empno}`);
+          b.dataset.act = 'edit';
+          b.dataset.empno = e.empno;
+          b.addEventListener('click', () => openDialog(e, b));
+          box.append(b);
         }
         actionsTd.append(box);
         tr.append(actionsTd);
@@ -156,5 +172,71 @@ function renderTabs(counts) {
   }
 }
 
-document.getElementById('add-btn').addEventListener('click', () => {}); // wired in S3-DEV-04
+// ---- Add / Edit ----
+function showErrors(errors = {}) {
+  for (const f of FIELDS) {
+    const el = form.querySelector(`[data-for="${f}"]`);
+    if (el) el.textContent = errors[f] || '';
+    if (form.elements[f]) form.elements[f].setAttribute('aria-invalid', errors[f] ? 'true' : 'false');
+  }
+}
+
+function openDialog(emp, trigger) {
+  opener = trigger;
+  editingEmpno = emp ? emp.empno : null;
+  document.getElementById('employee-title').textContent = emp ? 'Edit Employee' : 'Add Employee';
+  for (const f of FIELDS) form.elements[f].value = emp ? (emp[f] ?? '') : '';
+  form.elements.empno.readOnly = Boolean(emp); // the number never changes
+  document.getElementById('empno-hint').textContent = emp
+    ? 'The employee number cannot be changed.'
+    : 'Exactly 5 digits, for example 00015. It cannot be changed later.';
+  showErrors();
+  document.getElementById('form-error').textContent = '';
+  dialog.showModal();
+  (emp ? form.elements.lastname : form.elements.empno).focus();
+}
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  showErrors();
+  document.getElementById('form-error').textContent = '';
+  const saveBtn = document.getElementById('save-btn');
+  saveBtn.disabled = true;
+  const body = Object.fromEntries(FIELDS.map((f) => [f, form.elements[f].value]));
+  try {
+    const res = await fetch(editingEmpno ? `/api/employees/${encodeURIComponent(editingEmpno)}` : '/api/employees', {
+      method: editingEmpno ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      dialog.close();
+      const who = `${json.employee.firstname} ${json.employee.lastname}`;
+      flash('ok', editingEmpno ? `${who} was updated.` : `${who} was added as ${json.employee.empno}.`);
+      load();
+    } else if (json.errors) {
+      showErrors(json.errors); // the form stays open with the problem shown
+      const first = FIELDS.find((f) => json.errors[f]);
+      if (first) form.elements[first].focus();
+    } else {
+      document.getElementById('form-error').textContent = json.error || 'Something went wrong. Please try again.';
+    }
+  } catch {
+    document.getElementById('form-error').textContent = 'Could not reach the server. Please try again.';
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+dialog.addEventListener('close', () => {
+  const again = editingEmpno && rowsEl.querySelector(`button[data-act="edit"][data-empno="${editingEmpno}"]`);
+  const target = opener && document.contains(opener) ? opener : again || document.getElementById('add-btn');
+  target.focus();
+});
+document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
+document.getElementById('employee-close').addEventListener('click', () => dialog.close());
+document.getElementById('add-btn').addEventListener('click', (ev) => openDialog(null, ev.currentTarget));
+
 load();

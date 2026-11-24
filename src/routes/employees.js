@@ -23,7 +23,9 @@ module.exports = function employeeRoutes(db, perms) {
   };
 
   router.get('/', handle((req) => employees.list(req.user, req.query)));
-  // Add, Edit, Delete and Restore arrive in S3-DEV-04 and S3-DEV-05.
+  router.post('/', requireRight(perms, 'EMP_ADD'), handle((req) => employees.create(req.user, req.body)));
+  router.put('/:empno', requireRight(perms, 'EMP_EDIT'), handle((req) => employees.update(req.user, req.params.empno, req.body)));
+  // Delete and Restore arrive in S3-DEV-05.
 
   return router;
 };

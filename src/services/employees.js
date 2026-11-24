@@ -1,5 +1,7 @@
 'use strict';
 
+const { validateEmployee, EMPNO_RE } = require('../validators/employee');
+const { auditName } = require('./rights');
 const { isAdminRole } = require('./permissions');
 
 const SORT_KEYS = ['empno', 'name', 'gender', 'hired', 'separated'];
@@ -65,7 +67,45 @@ function createEmployees({ db, repo, perms }) {
     };
   }
 
-  return { list };
+  const NOT_FOUND = { status: 404, body: { error: 'Employee not found.' } };
+  const takenResponse = (row) => ({
+    status: 409,
+    body: {
+      errors: {
+        empno: row.is_deleted
+          ? 'That employee number belongs to a deleted employee. An Admin can restore it, or use another number.'
+          : 'That employee number already exists.',
+      },
+    },
+  });
+
+  // The route has already checked EMP_ADD / EMP_EDIT. The audit log and the Stamp column name the real person.
+  async function create(actor, body) {
+    const { errors, value } = validateEmployee(body, { needEmpno: true });
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const taken = await repo.findAnyEmployee(client, value.empno);
+        if (taken) return takenResponse(taken);
+        return { status: 201, body: { employee: toItem(await repo.insertEmployee(client, value)) } };
+      });
+    } catch (err) {
+      if (err.code === '23505') return takenResponse({ is_deleted: false }); // same number added at the same moment
+      throw err;
+    }
+  }
+
+  async function update(actor, empno, body) {
+    if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
+    const { errors, value } = validateEmployee(body); // any "empno" in the body is ignored
+    if (Object.keys(errors).length) return { status: 400, body: { errors } };
+    return db.txAs(auditName(actor), async (client) => {
+      const row = await repo.updateEmployee(client, empno, value);
+      return row ? { status: 200, body: { employee: toItem(row) } } : NOT_FOUND;
+    });
+  }
+
+  return { list, create, update };
 }
 
 module.exports = { createEmployees, normalizeQuery, VIEW_RIGHTS };

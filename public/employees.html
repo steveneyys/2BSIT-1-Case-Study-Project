@@ -66,6 +66,42 @@
       </span>
     </div>
   </main>
+  <dialog id="employee-dialog" aria-labelledby="employee-title">
+    <form id="employee-form" method="dialog" novalidate>
+      <div class="head"><h2 id="employee-title">Add Employee</h2><button type="button" class="close" id="employee-close" aria-label="Close">&times;</button></div>
+      <hr />
+      <label for="empno">Employee number <span class="req">(required)</span></label>
+      <input id="empno" name="empno" maxlength="5" inputmode="numeric" autocomplete="off" required aria-describedby="empno-hint" />
+      <div class="hint" id="empno-hint">Exactly 5 digits, for example 00015. It cannot be changed later.</div>
+      <div class="err" data-for="empno"></div>
+      <label for="lastname">Last name <span class="req">(required)</span></label>
+      <input id="lastname" name="lastname" maxlength="15" required />
+      <div class="err" data-for="lastname"></div>
+      <label for="firstname">First name <span class="req">(required)</span></label>
+      <input id="firstname" name="firstname" maxlength="15" required />
+      <div class="err" data-for="firstname"></div>
+      <label for="gender-field">Gender <span class="req">(required)</span></label>
+      <select id="gender-field" name="gender" required>
+        <option value="">Choose...</option><option value="M">Male</option><option value="F">Female</option>
+      </select>
+      <div class="err" data-for="gender"></div>
+      <label for="birthdate">Birth date <span class="req">(required)</span></label>
+      <input id="birthdate" name="birthdate" type="date" required />
+      <div class="err" data-for="birthdate"></div>
+      <label for="hiredate">Hire date <span class="req">(required)</span></label>
+      <input id="hiredate" name="hiredate" type="date" required />
+      <div class="err" data-for="hiredate"></div>
+      <label for="sepdate">Separation date <span class="muted">(optional)</span></label>
+      <input id="sepdate" name="sepdate" type="date" aria-describedby="sepdate-hint" />
+      <div class="hint" id="sepdate-hint">Only when the person has left the company. It is not the same as deleting the record, and it cannot be before the hire date.</div>
+      <div class="err" data-for="sepdate"></div>
+      <div class="err" id="form-error" role="alert"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="cancel-btn">Cancel</button>
+        <button class="btn primary" type="submit" id="save-btn">Save Employee</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/js/shell.js"></script>
   <script src="/js/hr-nav.js"></script>
   <script src="/js/employees.js"></script>
