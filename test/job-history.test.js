@@ -107,7 +107,7 @@ function writeSvc(over = {}) {
     updateRow: async (_c, e, _k, v) => { st.updated = v; return { empno: e, ...v, jobdesc: 'P2', deptname: 'IT' }; },
     ...over,
   };
-  return { svc: createJobHistory({ db: fakeDb(), repo: r, perms: perms([]), today: () => TODAY }), st };
+  return { svc: createJobHistory({ db: fakeDb(), repo: r, perms: perms(['JOBHIST_VIEW']), today: () => TODAY }), st };
 }
 
 test('create: 201 with the actor as audit name; bad input, missing job or department, date before hire give 400 and write nothing', async () => {
@@ -248,4 +248,60 @@ test('menu: the job history screen keeps the Human Resources tab lit but is not 
   const m = buildMenu(user(5, 'user'), hr, ['HR'], { all: false, codes: new Set(['JOBHIST_VIEW']) });
   assert.ok(m.modules[0].pages.includes('/job-history.html'));
   assert.notStrictEqual(m.modules[0].href, '/job-history.html');
+});
+
+// ================= S3-DEV-08: salary and job history only with View Job History =================
+const SALARY_REPLY = /salary|50000|48000|Programmer|Information/i;
+function leakSvc(rights, deleted = false) {
+  const row = { empno: '00001', jobcode: 'PR2', jobdesc: 'Programmer 2', deptcode: 'IT', deptname: 'Information Tech', effdate: '2022-01-01', salary: '50000.00', is_deleted: false };
+  const r = {
+    lockEmployee: async () => {}, findEmployee: async () => emp, findJob: async () => ({}), findDepartment: async () => ({}),
+    findLiveEffdate: async () => null, findRow: async () => null,
+    insertRow: async () => row, updateRow: async () => row, softDeleteRow: async () => row, restoreRow: async () => row,
+  };
+  return createJobHistory({ db: fakeDb(), repo: { ...r, findRow: async (_c, _e, job) => (job === 'PR2' ? { ...row, is_deleted: deleted } : null) }, perms: perms(rights), today: () => TODAY });
+}
+
+test('write replies never echo a salary or job to someone without View Job History (TC-SV-03, TC-SV-06)', async () => {
+  const u = user(5, 'user');
+  const svc = leakSvc(['JOBHIST_ADD', 'JOBHIST_EDIT', 'JOBHIST_DELETE']);
+  const replies = [
+    await svc.create(u, '00001', { ...good, jobcode: 'MGR' }),
+    await svc.update(u, '00001', 'PR2', '2022-01-01', { ...good, jobcode: 'PR2' }),
+    await svc.remove(u, '00001', 'PR2', '2022-01-01'),
+  ];
+  for (const r of replies) {
+    assert.ok(r.status === 200 || r.status === 201, `status ${r.status}`);
+    assert.doesNotMatch(JSON.stringify(r.body), SALARY_REPLY);
+    assert.deepStrictEqual(Object.keys(r.body.record).sort(), ['effdate', 'jobcode']);
+  }
+});
+
+test('write replies keep full details for someone who may view, and for Admins', async () => {
+  const u = user(5, 'user');
+  const withView = await leakSvc(['JOBHIST_DELETE', 'JOBHIST_VIEW']).remove(u, '00001', 'PR2', '2022-01-01');
+  assert.strictEqual(withView.body.record.salary, 50000);
+  const adm = await leakSvc([], true).restore(admin(), '00001', 'PR2', '2022-01-01');
+  assert.strictEqual(adm.body.record.salary, 50000);
+});
+
+test('rights are read on every request, so ticking or unticking View Job History takes effect at once (TC-SV-09)', async () => {
+  let rights = ['JOBHIST_VIEW'];
+  const live = createPermissions({ db: {}, repo: { listUserRights: async () => rights } });
+  const svc = createJobHistory({ db: fakeDb(), perms: live, today: () => TODAY, repo: { findRow: async () => ({ empno: '00001', jobcode: 'PR2', effdate: '2022-01-01', salary: '50000.00', is_deleted: false }), softDeleteRow: async () => ({ jobcode: 'PR2', effdate: '2022-01-01', salary: '50000.00' }) } });
+  assert.strictEqual((await svc.remove(user(5, 'user'), '00001', 'PR2', '2022-01-01')).body.record.salary, 50000);
+  rights = [];
+  assert.strictEqual((await svc.remove(user(5, 'user'), '00001', 'PR2', '2022-01-01')).body.record.salary, undefined);
+});
+
+test('menu and screens: a person with only View Job History reaches Employees (list, profile, history) and nothing that changes data', async () => {
+  const hr = [{ module_code: 'HR', module_name: 'Human Resources' }];
+  const m = buildMenu(user(5, 'user'), hr, ['HR'], { all: false, codes: new Set(['JOBHIST_VIEW']) });
+  assert.strictEqual(m.modules[0].href, '/employees.html');
+  const { createEmployees } = require('../src/services/employees');
+  const svc = createEmployees({ db: {}, perms: perms(['JOBHIST_VIEW']), repo: { listEmployees: async () => [], countEmployees: async () => ({}) } });
+  const b = (await svc.list(user(5, 'user'), {})).body;
+  assert.deepStrictEqual(b.can, { add: false, edit: false, delete: false, restore: false, seeDeleted: false, history: true });
+  const gate = requireRight(perms(['JOBHIST_VIEW']), ...require('../src/services/employees').VIEW_RIGHTS);
+  assert.strictEqual(await go(gate, { user: user(5, 'user') }), 'next');
 });

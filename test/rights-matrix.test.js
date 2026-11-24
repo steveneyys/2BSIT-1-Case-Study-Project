@@ -68,7 +68,7 @@ const MODULES = [
     ],
   },
   {
-    name: 'employees', file: '../src/routes/employees', all: ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE'],
+    name: 'employees', file: '../src/routes/employees', all: ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE', 'JOBHIST_VIEW'],
     routes: [['POST', '/', 'EMP_ADD'], ['PUT', '/:empno', 'EMP_EDIT'], ['DELETE', '/:empno', 'EMP_DELETE'], ['POST', '/:empno/restore', 'ADMIN']],
   },
   {

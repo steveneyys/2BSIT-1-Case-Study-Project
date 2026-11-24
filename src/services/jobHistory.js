@@ -136,7 +136,16 @@ function createJobHistory({ db, repo, perms, today = manilaToday }) {
     }
   }
 
-  return { view, create, update, remove, restore };
+  // Someone with Add, Edit or Delete but without View Job History must not learn salaries from a reply: a Delete or Edit
+  // answer would otherwise echo the stored row. They get the row's key back, nothing else.
+  async function scrub(actor, result) {
+    const record = result.body && result.body.record;
+    if (!record || (await perms.can(actor, 'JOBHIST_VIEW'))) return result;
+    return { ...result, body: { record: { jobcode: record.jobcode, effdate: record.effdate } } };
+  }
+  const guarded = (fn) => async (actor, ...args) => scrub(actor, await fn(actor, ...args));
+
+  return { view, create: guarded(create), update: guarded(update), remove: guarded(remove), restore: guarded(restore) };
 }
 
 module.exports = { createJobHistory, pickCurrent, VIEW_RIGHTS };
