@@ -3,6 +3,8 @@
 const { validateEmployee, EMPNO_RE } = require('../validators/employee');
 const { auditName } = require('./rights');
 const { isAdminRole } = require('./permissions');
+const { pickCurrent } = require('./jobHistory');
+const { manilaToday } = require('../validators/employee');
 
 const SORT_KEYS = ['empno', 'name', 'gender', 'hired', 'separated'];
 const STATUSES = ['active', 'deleted', 'all'];
@@ -25,6 +27,10 @@ function normalizeQuery(q = {}) {
 }
 
 const clean = (v) => String(v ?? '').trim();
+const jobItem = (r) => ({
+  jobcode: r.jobcode, job: clean(r.jobdesc) || r.jobcode, deptcode: r.deptcode, department: clean(r.deptname) || r.deptcode,
+  effdate: r.effdate, salary: r.salary == null ? null : Number(r.salary),
+});
 const toItem = (r) => ({
   empno: r.empno,
   lastname: clean(r.lastname),
@@ -37,7 +43,7 @@ const toItem = (r) => ({
 // Admins and superadmins also see the Status and the Stamp; everyone else gets neither.
 const toAdminItem = (r) => ({ ...toItem(r), deleted: Boolean(r.is_deleted), status: r.is_deleted ? 'Inactive' : 'Active', stamp: r.stamp || null });
 
-function createEmployees({ db, repo, perms }) {
+function createEmployees({ db, repo, perms, historyRepo = null, today = manilaToday }) {
   async function list(user, query) {
     const n = normalizeQuery(query);
     const admin = isAdminRole(user);
@@ -142,7 +148,41 @@ function createEmployees({ db, repo, perms }) {
     });
   }
 
-  return { list, create, update, remove, restore };
+  // Profile: personal details for anyone who may open the employees screens. The job timeline and salaries are
+  // included ONLY when the person holds the View Job History right (Admins and Superadmins always do): they are not
+  // merely hidden on screen, they are never sent.
+  async function profile(user, empno) {
+    if (!EMPNO_RE.test(String(empno))) return NOT_FOUND;
+    const admin = isAdminRole(user);
+    const row = await repo.findProfile(db, empno);
+    if (!row || (row.is_deleted && !admin)) return NOT_FOUND;
+    const [canHistory, canEdit] = await Promise.all([perms.can(user, 'JOBHIST_VIEW'), perms.can(user, 'EMP_EDIT')]);
+    let history = null;
+    if (canHistory && historyRepo) {
+      const rows = await historyRepo.listHistory(db, empno); // live rows only
+      const now = today();
+      const current = pickCurrent(rows, now);
+      history = {
+        current: current ? jobItem(current) : null,
+        timeline: rows.map((r) => ({ ...jobItem(r), current: r === current, upcoming: r.effdate > now })),
+      };
+    }
+    const base = toItem(row);
+    return {
+      status: 200,
+      body: {
+        employee: {
+          ...base,
+          employment: base.sepdate ? 'Separated' : 'Employed', // leaving the company, not the same as a deleted record
+          ...(admin ? { deleted: Boolean(row.is_deleted), status: row.is_deleted ? 'Inactive' : 'Active', stamp: row.stamp || null } : {}),
+        },
+        history, // null = no right to see it
+        can: { history: canHistory, edit: canEdit && !row.is_deleted },
+      },
+    };
+  }
+
+  return { list, profile, create, update, remove, restore };
 }
 
 module.exports = { createEmployees, normalizeQuery, VIEW_RIGHTS };
