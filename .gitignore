@@ -6,3 +6,6 @@ node_modules/
 !.env.example
 *.log
 .DS_Store
+
+# database backups contain real data (e-mails, password hashes): never commit
+backups/
