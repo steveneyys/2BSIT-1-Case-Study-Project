@@ -17,17 +17,17 @@ The checklist and test scenarios below are review materials. They are not eviden
 
 ## Cross-Module Consistency Checklist
 
-- [ ] Use the Hope, Inc. ERP name and shared typography: Host Grotesk for headings and Instrument Sans for interface text.
-- [ ] Use the near-white and blue palette, 12px panel radius, fine borders, and 24px layout gaps.
-- [ ] Keep low-fi and styled screens consistent in composition. Use full-size frames, local role variants, and companion implementation notes outside the product UI.
-- [ ] Use only Superadmin, Admin, and User as underlying roles. Keep the five source demo identities unchanged. CEO is not a hierarchy role.
-- [ ] Make workspace navigation and Quick Actions follow the same view/action access policy. Hide User Management from User. Disable denied contextual shortcuts and explain why.
-- [ ] Filter business lists by role. In Admin views, show Active, Inactive, and All tabs; shade inactive rows and show the latest Stamp. Show Restore for inactive payments in the Admin view per Student Guide §2.3. User sees active rows and authorized actions only.
-- [ ] Keep business Active/Inactive status separate from account Active/Pending/Blocked/Disapproved status. Do not make business Status or Stamp editable.
-- [ ] Preserve relationships on soft delete and restore. Block deletes when active child records exist. Do not use permanent delete or invent cascade behavior.
-- [ ] Reconcile sale-date prices, active-line totals, and the seven report outputs to the $884.50 source active sales. Label the sample payment balance of $84.50 separately.
-- [ ] Redact salary and job-history data in lists, profiles, timelines, reports, Print/PDF output, and tooltips when the user lacks access.
-- [ ] Keep the full audit viewer Superadmin-only. Separate proposed sample events from the latest Stamp. Do not invent payment, audit, or settings permissions.
+- [ ✓ ] Use the Hope, Inc. ERP name and shared typography: Host Grotesk for headings and Instrument Sans for interface text.
+- [ ✓] Use the near-white and blue palette, 12px panel radius, fine borders, and 24px layout gaps.
+- [✓ ] Keep low-fi and styled screens consistent in composition. Use full-size frames, local role variants, and companion implementation notes outside the product UI.
+- [✓ ] Use only Superadmin, Admin, and User as underlying roles. Keep the five source demo identities unchanged. CEO is not a hierarchy role.
+- [ ✓ ] Make workspace navigation and Quick Actions follow the same view/action access policy. Hide User Management from User. Disable denied contextual shortcuts and explain why.
+- [ ✓] Filter business lists by role. In Admin views, show Active, Inactive, and All tabs; shade inactive rows and show the latest Stamp. Show Restore for inactive payments in the Admin view per Student Guide §2.3. User sees active rows and authorized actions only.
+- [ ✓] Keep business Active/Inactive status separate from account Active/Pending/Blocked/Disapproved status. Do not make business Status or Stamp editable.
+- [✓ ] Preserve relationships on soft delete and restore. Block deletes when active child records exist. Do not use permanent delete or invent cascade behavior.
+- [✓ ] Reconcile sale-date prices, active-line totals, and the seven report outputs to the $884.50 source active sales. Label the sample payment balance of $84.50 separately.
+- [ ✓] Redact salary and job-history data in lists, profiles, timelines, reports, Print/PDF output, and tooltips when the user lacks access.
+- [ ✓] Keep the full audit viewer Superadmin-only. Separate proposed sample events from the latest Stamp. Do not invent payment, audit, or settings permissions.
 
 ## Open Scope Decisions and Reference Gaps
 
