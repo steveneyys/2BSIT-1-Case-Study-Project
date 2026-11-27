@@ -118,28 +118,6 @@ function render(data) {
           b.addEventListener('click', () => openDialog(s, b));
           box.append(b);
         }
-        if (can.delete && !s.deleted) {
-          const d = document.createElement('button');
-          d.type = 'button';
-          d.className = 'btn danger';
-          d.textContent = 'Delete';
-          d.setAttribute('aria-label', `Delete ${s.transno}`);
-          d.dataset.act = 'delete';
-          d.dataset.transno = s.transno;
-          d.addEventListener('click', () => askDelete(s, d));
-          box.append(d);
-        }
-        if (can.restore && s.deleted) {
-          const r = document.createElement('button');
-          r.type = 'button';
-          r.className = 'btn';
-          r.textContent = 'Restore';
-          r.setAttribute('aria-label', `Restore ${s.transno}`);
-          r.dataset.act = 'restore';
-          r.dataset.transno = s.transno;
-          r.addEventListener('click', () => restoreSale(s, r));
-          box.append(r);
-        }
         actionsTd.append(box);
         tr.append(actionsTd);
       }
@@ -321,59 +299,5 @@ dialog.addEventListener('close', () => {
 document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
 document.getElementById('sale-close').addEventListener('click', () => dialog.close());
 document.getElementById('add-btn').addEventListener('click', (ev) => openDialog(null, ev.currentTarget));
-
-// ---- Delete (with confirmation) and Restore (S4-DEV-07) ----
-const deleteDialog = document.getElementById('delete-dialog');
-const deleteError = document.getElementById('delete-error');
-let pending = null;
-let deleteOpener = null;
-
-function askDelete(sale, trigger) {
-  pending = sale;
-  deleteOpener = trigger;
-  document.getElementById('delete-title').textContent = `Delete ${sale.transno}?`;
-  document.getElementById('delete-text').textContent = 'The sale becomes inactive. Existing relationships are retained. An Admin can restore it later.';
-  deleteError.textContent = '';
-  document.getElementById('delete-ok').disabled = false;
-  deleteDialog.showModal();
-  document.getElementById('delete-cancel').focus(); // the safe choice has the focus
-}
-
-document.getElementById('delete-cancel').addEventListener('click', () => deleteDialog.close());
-deleteDialog.addEventListener('close', () => {
-  const again = pending && rowsEl.querySelector(`button[data-act="delete"][data-transno="${pending.transno}"]`);
-  (deleteOpener && document.contains(deleteOpener) ? deleteOpener : again || document.getElementById('search')).focus();
-});
-document.getElementById('delete-form').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const okBtn = document.getElementById('delete-ok');
-  okBtn.disabled = true;
-  try {
-    const res = await fetch(`/api/sales/${encodeURIComponent(pending.transno)}`, { method: 'DELETE' });
-    if (res.status === 401) { window.location.href = '/login.html'; return; }
-    const json = await res.json().catch(() => ({}));
-    if (res.ok) { deleteDialog.close(); flash('ok', `${pending.transno} was deleted. It is now inactive.`); load(); return; }
-    deleteError.textContent = json.error || 'Could not delete this sale.';
-    okBtn.disabled = Boolean(json.blocked); // a blocked delete cannot be retried until the linked records are resolved
-  } catch {
-    deleteError.textContent = 'Could not reach the server. Please try again.';
-    okBtn.disabled = false;
-  }
-});
-
-async function restoreSale(sale, button) {
-  button.disabled = true;
-  try {
-    const res = await fetch(`/api/sales/${encodeURIComponent(sale.transno)}/restore`, { method: 'POST' });
-    if (res.status === 401) { window.location.href = '/login.html'; return; }
-    const json = await res.json().catch(() => ({}));
-    if (res.ok) { flash('ok', `${sale.transno} was restored.`); load(); return; }
-    flash('bad', json.error || 'Could not restore this sale.');
-    button.disabled = false;
-  } catch {
-    flash('bad', 'Could not reach the server. Please try again.');
-    button.disabled = false;
-  }
-}
 
 load();
