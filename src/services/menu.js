@@ -10,6 +10,7 @@ const MODULE_PAGES = {
   customer: '/customers.html',
   product: '/products.html',
   sales: '/sales.html',
+  reports: '/reports.html',
   hr: '/departments.html', // default; see MODULE_SUBPAGES for the pages inside Human Resources
 };
 
@@ -28,7 +29,7 @@ const MODULE_SUBPAGES = {
 };
 
 // Screens reached from another screen (not from the tab bar). They keep the module tab highlighted.
-const MODULE_EXTRA_PAGES = { hr: ['/employee.html', '/job-history.html'], sales: ['/sale.html'] };
+const MODULE_EXTRA_PAGES = { hr: ['/employee.html', '/job-history.html'], sales: ['/sale.html'], reports: ['/report.html'] };
 
 const ADMIN_ITEMS = [{ key: 'users', label: 'User Management', href: '/users.html' }];
 
