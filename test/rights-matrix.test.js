@@ -91,6 +91,11 @@ const MODULES = [
     ],
   },
   {
+    name: 'payments', file: '../src/routes/payments', all: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'],
+    // No payment right exists yet: payments follow the sales rights (see src/services/payments.js). Recording needs Edit Sale.
+    routes: [['POST', '/', 'SALE_EDIT']],
+  },
+  {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
     routes: [
       ['POST', '/', 'PROD_ADD'], ['PUT', '/:code', 'PROD_EDIT'], ['DELETE', '/:code', 'PROD_DELETE'], ['POST', '/:code/restore', 'ADMIN'],

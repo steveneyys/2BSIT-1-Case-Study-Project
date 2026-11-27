@@ -21,6 +21,10 @@ const MODULE_SUBPAGES = {
     { href: '/jobs.html', rights: ['JOB_ADD', 'JOB_EDIT', 'JOB_DELETE'] },
     { href: '/employees.html', rights: ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE', 'JOBHIST_VIEW'] },
   ],
+  sales: [
+    { href: '/sales.html', rights: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW', 'SALEDET_ADD', 'SALEDET_EDIT', 'SALEDET_DELETE'] },
+    { href: '/payments.html', rights: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'] }, // payments follow the sales rights (see services/payments.js)
+  ],
 };
 
 // Screens reached from another screen (not from the tab bar). They keep the module tab highlighted.
