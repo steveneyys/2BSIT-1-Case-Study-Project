@@ -32,6 +32,8 @@ const MODULE_SUBPAGES = {
 const MODULE_EXTRA_PAGES = { hr: ['/employee.html', '/job-history.html'], sales: ['/sale.html', '/balance.html', '/customer-balance.html'], reports: ['/report.html'] };
 
 const ADMIN_ITEMS = [{ key: 'users', label: 'User Management', href: '/users.html' }];
+// Shown on the dashboard of a Superadmin only (not in the tab bar, and never offered to an Admin).
+const SUPERADMIN_ITEMS = [{ key: 'audit', label: 'Audit Viewer', href: '/audit.html' }];
 
 // Builds what the main page shows. The browser only draws it; what is offered here is decided by the server.
 // `rights` is optional ({ all, codes }); without it a module with several screens opens on its first screen.
@@ -52,6 +54,7 @@ function buildMenu(user, modules, userModuleCodes, rights = null) {
       return { code: m.module_code, name: m.module_name, href, ...(pages.length ? { pages } : {}) };
     }),
     admin: admin ? ADMIN_ITEMS : [],
+    superadmin: user.role === 'superadmin' ? SUPERADMIN_ITEMS : [],
   };
 }
 

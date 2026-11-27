@@ -167,3 +167,11 @@ dialog input[readonly] { background: var(--wash); color: var(--muted); }
 .balance-figures dt { font-size: .8rem; color: var(--muted, #666); }
 .balance-figures dd { margin: 0; font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .balance-sum { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 .25rem; }
+
+/* Audit viewer (S4-DEV-08) */
+.audit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .75rem 1rem; }
+.audit-filters { margin: 1rem 0; }
+.audit details summary { cursor: pointer; color: var(--primary); font-size: .85rem; }
+.audit table.changes { margin-top: .5rem; font-size: .8rem; min-width: 22rem; }
+.audit table.changes th, .audit table.changes td { padding: .3rem .6rem; }
+.audit-grid input, .audit-grid select { width: 100%; }

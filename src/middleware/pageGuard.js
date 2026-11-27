@@ -7,6 +7,7 @@ const { attachUser } = require('./auth');
 // protected by the API, but pages should not be served to people who may not use them.
 //   roles: null          -> any signed-in user
 //   roles: ['admin',...] -> only those roles
+//   redirect: '/x'       -> where to send someone the role rule turns away (default /home.html)
 //   rights: ['CUST_ADD',...] -> also needs at least one of these rights (admins and superadmins always pass)
 // Add a line here for each new screen (Sprint 2+).
 const PAGE_RULES = {
@@ -26,6 +27,7 @@ const PAGE_RULES = {
   '/report.html': { roles: null, rights: ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY', 'RPT_TOP_CUSTOMERS', 'RPT_TOP_PRODUCTS', 'RPT_TOP_SALES'] },
   '/balance.html': { roles: null, rights: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'] },
   '/customer-balance.html': { roles: null, rights: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'] },
+  '/audit.html': { roles: ['superadmin'], redirect: '/home.html?restricted=audit' },
   '/products.html': { roles: null, rights: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'] },
 };
 
@@ -52,7 +54,7 @@ function guardPages(db, config, rules = PAGE_RULES, perms = null) {
     load(req, res, async (err) => {
       if (err) return next(err);
       if (!req.user) return res.redirect(302, '/login.html');
-      if (rule.roles && !rule.roles.includes(req.user.role)) return res.redirect(302, '/home.html');
+      if (rule.roles && !rule.roles.includes(req.user.role)) return res.redirect(302, rule.redirect || '/home.html');
       try {
         // A page that needs rights is refused when the rights cannot be checked (fail closed).
         if (rule.rights && !(perms && (await perms.can(req.user, ...rule.rights)))) return res.redirect(302, '/home.html');
