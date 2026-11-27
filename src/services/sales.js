@@ -138,7 +138,54 @@ function createSales({ db, repo, perms, today = manilaToday }) {
     });
   }
 
-  return { list, options, create, update };
+  // Why a delete is refused: the sale still has active lines or payments. Nothing is deleted automatically (no cascade).
+  const blocked = (transno, c) => {
+    const parts = [];
+    if (c.lines) parts.push(`${c.lines} active line item${c.lines === 1 ? '' : 's'}`);
+    if (c.payments) parts.push(`${c.payments} active payment${c.payments === 1 ? '' : 's'}`);
+    const what = parts.length ? parts.join(' and ') : 'active line items or payments';
+    return { status: 409, body: { blocked: true, error: `Cannot delete ${transno}: active details or payments exist. This transaction has ${what}. Resolve the linked records before deleting. Nothing is deleted automatically.` } };
+  };
+
+  async function remove(actor, transno) {
+    if (!TRANS_RE.test(String(transno))) return NOT_FOUND;
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const row = await repo.findSale(client, transno);
+        if (!row || row.is_deleted) return NOT_FOUND;
+        // Friendly check first; the database trigger is the final guard if a record appears in between.
+        const c = await repo.countActiveChildren(client, transno);
+        if (c.lines + c.payments > 0) return blocked(transno, c);
+        const done = await repo.softDeleteSale(client, transno);
+        // Only the number comes back: someone who may delete sales is not thereby allowed to read their details.
+        return done ? { status: 200, body: { sale: { transno } } } : NOT_FOUND;
+      });
+    } catch (err) {
+      if (/Cannot delete sales/i.test(String(err.message))) return blocked(transno, { lines: 0, payments: 0 });
+      throw err;
+    }
+  }
+
+  async function restore(actor, transno) {
+    if (!isAdminRole(actor)) return { status: 403, body: { error: 'Only an Admin can restore a sale.' } };
+    if (!TRANS_RE.test(String(transno))) return NOT_FOUND;
+    try {
+      return await db.txAs(auditName(actor), async (client) => {
+        const gone = await repo.findSale(client, transno);
+        if (!gone || !gone.is_deleted) return NOT_FOUND;
+        const row = await repo.restoreSale(client, transno);
+        return row ? { status: 200, body: { sale: toAdminItem(row) } } : NOT_FOUND;
+      });
+    } catch (err) {
+      // Migration 010: the customer or the salesperson of this sale is deleted.
+      if (/Restore it first/i.test(String(err.message))) {
+        return { status: 409, body: { error: 'The customer or the salesperson of this sale is deleted. Restore them first, then restore the sale.' } };
+      }
+      throw err;
+    }
+  }
+
+  return { list, options, create, update, remove, restore };
 }
 
 module.exports = { createSales, normalizeQuery, VIEW_RIGHTS, LIST_RIGHTS, toItem, toAdminItem, clean, personName, money };
