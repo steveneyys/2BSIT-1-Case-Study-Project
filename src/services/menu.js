@@ -24,7 +24,7 @@ const MODULE_SUBPAGES = {
 };
 
 // Screens reached from another screen (not from the tab bar). They keep the module tab highlighted.
-const MODULE_EXTRA_PAGES = { hr: ['/employee.html', '/job-history.html'] };
+const MODULE_EXTRA_PAGES = { hr: ['/employee.html', '/job-history.html'], sales: ['/sale.html'] };
 
 const ADMIN_ITEMS = [{ key: 'users', label: 'User Management', href: '/users.html' }];
 
@@ -43,7 +43,8 @@ function buildMenu(user, modules, userModuleCodes, rights = null) {
         const first = subpages.find((p) => rights.all || p.rights.some((r) => rights.codes.has(r)));
         if (first) href = first.href;
       }
-      return { code: m.module_code, name: m.module_name, href, ...(subpages ? { pages: [...subpages.map((p) => p.href), ...(MODULE_EXTRA_PAGES[key] || [])] } : {}) };
+      const pages = [...(subpages || []).map((p) => p.href), ...(MODULE_EXTRA_PAGES[key] || [])];
+      return { code: m.module_code, name: m.module_name, href, ...(pages.length ? { pages } : {}) };
     }),
     admin: admin ? ADMIN_ITEMS : [],
   };

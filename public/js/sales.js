@@ -1,6 +1,6 @@
 'use strict';
 
-// Sales list and the New Sale / Edit Sale header form (S4-DEV-01).
+// Sales list and the New Sale / Edit Sale header form (S4-DEV-01). Details link: S4-DEV-02.
 // The server checks every right; this file only draws what it is given. All text goes in with textContent.
 const rowsEl = document.getElementById('rows');
 const msgEl = document.getElementById('msg');
@@ -22,7 +22,7 @@ const form = document.getElementById('sale-form');
 
 function flash(kind, text) { msgEl.className = kind; msgEl.textContent = text; }
 function clearMsg() { msgEl.className = ''; msgEl.textContent = ''; }
-function showActions() { return can.edit; }
+function showActions() { return can.details || can.edit; }
 function cols() { return 5 + (can.seeDeleted ? 2 : 0) + (showActions() ? 1 : 0); }
 function filtered() { return Boolean(searchEl.value.trim()); }
 
@@ -58,7 +58,15 @@ function render(data) {
     rowsEl.replaceChildren();
     for (const s of data.sales) {
       const tr = document.createElement('tr');
-      tr.append(cell(s.transno), cell(s.salesdate || '—'));
+      const numTd = document.createElement('td');
+      if (can.details) { // the transaction number opens the sale details (S4-DEV-02); the server re-checks View Sale Details
+        const link = document.createElement('a');
+        link.href = `/sale.html?transno=${encodeURIComponent(s.transno)}`;
+        link.textContent = s.transno;
+        link.setAttribute('aria-label', `Open details of ${s.transno}`);
+        numTd.append(link);
+      } else numTd.textContent = s.transno;
+      tr.append(numTd, cell(s.salesdate || '—'));
       tr.append(cell(s.customer ? `${s.custno} · ${s.customer}` : s.custno || '—'));
       tr.append(cell(s.employee ? `${s.empno} · ${s.employee}` : s.empno || '—'));
       const total = cell(PESO.format(s.total ?? 0), 'num');
@@ -82,6 +90,16 @@ function render(data) {
         const actionsTd = document.createElement('td');
         const box = document.createElement('div');
         box.className = 'actions';
+        if (can.details) {
+          const a = document.createElement('a');
+          a.className = 'btn';
+          a.href = `/sale.html?transno=${encodeURIComponent(s.transno)}`;
+          a.textContent = 'Details';
+          a.setAttribute('aria-label', `Details of ${s.transno}`);
+          a.dataset.act = 'details';
+          a.dataset.transno = s.transno;
+          box.append(a);
+        }
         if (can.edit && !s.deleted) {
           const b = document.createElement('button');
           b.type = 'button';

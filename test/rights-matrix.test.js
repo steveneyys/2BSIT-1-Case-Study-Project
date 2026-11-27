@@ -83,7 +83,12 @@ const MODULES = [
     name: 'sales', file: '../src/routes/sales',
     all: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW', 'SALEDET_ADD', 'SALEDET_EDIT', 'SALEDET_DELETE'],
     read: '/', readers: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'], // the list needs a header right or View Sale Details; the router gate is any sales right
-    routes: [['POST', '/', 'SALE_ADD'], ['PUT', '/:transno', 'SALE_EDIT']],
+    moreReads: [['/:transno', ['SALEDET_VIEW']]], // seeing a sale's lines, prices and total needs View Sale Details
+    routes: [
+      ['POST', '/', 'SALE_ADD'], ['PUT', '/:transno', 'SALE_EDIT'],
+      ['POST', '/:transno/lines', 'SALEDET_ADD'], ['PUT', '/:transno/lines/:prodcode', 'SALEDET_EDIT'],
+      ['DELETE', '/:transno/lines/:prodcode', 'SALEDET_DELETE'], ['POST', '/:transno/lines/:prodcode/restore', 'ADMIN'],
+    ],
   },
   {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
@@ -133,17 +138,19 @@ for (const mod of MODULES) {
 
 test('reading is open to anyone holding at least one right of the module, and to nobody else', async () => {
   for (const mod of MODULES) {
-    const readPath = mod.read || '/';
-    for (const right of mod.all) {
+    const reads = [[mod.read || '/', mod.readers], ...(mod.moreReads || [])];
+    for (const [readPath, readers] of reads) {
+      for (const right of mod.all) {
+        const { fake, build } = load(mod.file);
+        build({}, perms([right]));
+        const get = fake.routes.find((r) => r.method === 'GET' && r.path === readPath);
+        const expected = !readers || readers.includes(right) ? 'pass' : 403;
+        assert.strictEqual(await runChain([...fake.uses, ...get.fns], { user: person('user') }), expected, `${mod.name} ${readPath} ${right}`);
+      }
       const { fake, build } = load(mod.file);
-      build({}, perms([right]));
+      build({}, perms(['HR_ADD', 'USER_VIEW']));
       const get = fake.routes.find((r) => r.method === 'GET' && r.path === readPath);
-      const expected = !mod.readers || mod.readers.includes(right) ? 'pass' : 403;
-      assert.strictEqual(await runChain([...fake.uses, ...get.fns], { user: person('user') }), expected, `${mod.name} ${right}`);
+      assert.strictEqual(await runChain([...fake.uses, ...get.fns], { user: person('user') }), 403, `${mod.name} ${readPath} with other modules' rights`);
     }
-    const { fake, build } = load(mod.file);
-    build({}, perms(['HR_ADD', 'USER_VIEW']));
-    const get = fake.routes.find((r) => r.method === 'GET' && r.path === readPath);
-    assert.strictEqual(await runChain([...fake.uses, ...get.fns], { user: person('user') }), 403, `${mod.name} with other modules' rights`);
   }
 });
