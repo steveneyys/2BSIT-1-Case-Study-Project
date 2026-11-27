@@ -137,7 +137,30 @@ async function countLinesUnpricedOn(db, transno, date) {
   return { lines: Number(rows[0].lines), unpriced: Number(rows[0].unpriced) };
 }
 
+// Soft delete / restore (S4-DEV-07). The database refuses a delete while active lines or payments exist (trg_check_children)
+// and a restore while the customer or the employee is deleted (trg_check_parent).
+async function softDeleteSale(client, transno) {
+  const { rowCount } = await client.query('UPDATE sales SET is_deleted = true WHERE transno = $1 AND NOT is_deleted', [transno]);
+  return rowCount > 0;
+}
+
+async function restoreSale(client, transno) {
+  const { rowCount } = await client.query('UPDATE sales SET is_deleted = false WHERE transno = $1 AND is_deleted', [transno]);
+  return rowCount > 0 ? findSale(client, transno) : null;
+}
+
+// Active records that block a delete: { lines, payments }.
+async function countActiveChildren(db, transno) {
+  const { rows } = await db.query(
+    `SELECT (SELECT count(*) FROM salesdetail_active WHERE transno = $1) AS lines,
+            (SELECT count(*) FROM payment_active WHERE transno = $1) AS payments`,
+    [transno]
+  );
+  return { lines: Number(rows[0].lines), payments: Number(rows[0].payments) };
+}
+
 module.exports = {
+  softDeleteSale, restoreSale, countActiveChildren,
   listSales, countSales, findSale, findCustomer, findEmployee, listOptions, lockNumbering, nextTransNo,
   insertSale, updateSale, countLinesUnpricedOn, escapeLike, SORTS,
 };

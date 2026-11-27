@@ -86,6 +86,7 @@ const MODULES = [
     moreReads: [['/:transno', ['SALEDET_VIEW']]], // seeing a sale's lines, prices and total needs View Sale Details
     routes: [
       ['POST', '/', 'SALE_ADD'], ['PUT', '/:transno', 'SALE_EDIT'],
+      ['DELETE', '/:transno', 'SALE_DELETE'], ['POST', '/:transno/restore', 'ADMIN'],
       ['POST', '/:transno/lines', 'SALEDET_ADD'], ['PUT', '/:transno/lines/:prodcode', 'SALEDET_EDIT'],
       ['DELETE', '/:transno/lines/:prodcode', 'SALEDET_DELETE'], ['POST', '/:transno/lines/:prodcode/restore', 'ADMIN'],
     ],

@@ -31,6 +31,10 @@ module.exports = function salesRoutes(db, perms) {
   router.post('/', requireRight(perms, 'SALE_ADD'), handle((req) => sales.create(req.user, req.body)));
   router.put('/:transno', requireRight(perms, 'SALE_EDIT'), handle((req) => sales.update(req.user, req.params.transno, req.body)));
 
+  // Soft delete (right SALE_DELETE) and restore (Admin only). Refused while the sale still has active lines or payments.
+  router.delete('/:transno', requireRight(perms, 'SALE_DELETE'), handle((req) => sales.remove(req.user, req.params.transno)));
+  router.post('/:transno/restore', requireRole('admin', 'superadmin'), handle((req) => sales.restore(req.user, req.params.transno)));
+
   // Sale details (S4-DEV-02). Seeing a sale's lines, prices and total needs View Sale Details; each change needs its own right.
   const line = '/:transno/lines/:prodcode';
   router.get('/:transno', requireRight(perms, 'SALEDET_VIEW'), handle((req) => details.view(req.user, req.params.transno)));
