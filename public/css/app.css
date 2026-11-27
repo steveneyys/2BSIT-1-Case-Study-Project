@@ -155,3 +155,8 @@ dialog input[readonly] { background: var(--wash); color: var(--muted); }
   tr { break-inside: avoid; }
   a { color: inherit; text-decoration: none; }
 }
+
+/* Ranked sales reports (S4-DEV-05) */
+.report-filters > div { display: flex; flex-direction: column; }
+.report-total { font-weight: 600; margin-top: .75rem; }
+.report-filters input[type=number] { width: 6rem; }

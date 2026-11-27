@@ -59,4 +59,64 @@ async function jobHistory(db, empno) {
   return rows;
 }
 
-module.exports = { productMaster, activeEmployees, allEmployees, employeeChoices, findEmployee, jobHistory };
+// ---- Ranked sales reports (S4-DEV-05) ----
+// Sales in the period: live sales dated From..To, their live lines, each priced as of the SALE date (price_as_of), as on the
+// Sales screen. A line with no price on its sale date has no amount; it is left out and counted, never guessed.
+const LINES = `WITH lines AS (
+  SELECT s.transno, s.salesdate, s.custno, d.prodcode, d.quantity, price_as_of(d.prodcode, s.salesdate) AS price
+    FROM sales_active s
+    JOIN salesdetail_active d ON d.transno = s.transno
+   WHERE s.salesdate BETWEEN $1::date AND $2::date)`;
+
+async function topCustomers(db, { from, to, topn }) {
+  const { rows } = await db.query(
+    `${LINES}
+     SELECT l.custno, c.custname, sum(l.quantity * l.price)::text AS amount
+       FROM lines l LEFT JOIN customer c ON c.custno = l.custno
+      WHERE l.price IS NOT NULL
+      GROUP BY l.custno, c.custname
+     HAVING sum(l.quantity * l.price) > 0
+      ORDER BY sum(l.quantity * l.price) DESC, l.custno ASC
+      LIMIT $3`,
+    [from, to, topn]
+  );
+  return rows;
+}
+
+async function topProducts(db, { from, to, topn }) {
+  const { rows } = await db.query(
+    `${LINES}
+     SELECT l.prodcode, p.description, sum(l.quantity)::text AS quantity, sum(l.quantity * l.price)::text AS amount
+       FROM lines l LEFT JOIN product p ON p.prodcode = l.prodcode
+      WHERE l.price IS NOT NULL
+      GROUP BY l.prodcode, p.description
+     HAVING sum(l.quantity * l.price) > 0
+      ORDER BY sum(l.quantity * l.price) DESC, l.prodcode ASC
+      LIMIT $3`,
+    [from, to, topn]
+  );
+  return rows;
+}
+
+async function topSales(db, { from, to, topn }) {
+  const { rows } = await db.query(
+    `${LINES}
+     SELECT l.transno, to_char(l.salesdate, 'YYYY-MM-DD') AS salesdate, l.custno, c.custname, sum(l.quantity * l.price)::text AS amount
+       FROM lines l LEFT JOIN customer c ON c.custno = l.custno
+      WHERE l.price IS NOT NULL
+      GROUP BY l.transno, l.salesdate, l.custno, c.custname
+     HAVING sum(l.quantity * l.price) > 0
+      ORDER BY sum(l.quantity * l.price) DESC, l.transno ASC
+      LIMIT $3`,
+    [from, to, topn]
+  );
+  return rows;
+}
+
+// Lines in the period that have no price on their sale date (left out of the three reports above).
+async function unpricedLines(db, { from, to }) {
+  const { rows } = await db.query(`${LINES} SELECT count(*) AS n FROM lines WHERE price IS NULL`, [from, to]);
+  return Number(rows[0].n);
+}
+
+module.exports = { topCustomers, topProducts, topSales, unpricedLines, productMaster, activeEmployees, allEmployees, employeeChoices, findEmployee, jobHistory };

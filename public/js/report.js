@@ -16,6 +16,7 @@ function flash(kind, text) { msg.className = kind; msg.textContent = text; }
 function formatValue(value, type) {
   if (value === null || value === undefined || value === '') return '—';
   if (type === 'money') return PESO.format(value);
+  if (type === 'number') return new Intl.NumberFormat('en-PH').format(value);
   return String(value);
 }
 
@@ -32,7 +33,7 @@ function draw(data) {
     const th = document.createElement('th');
     th.scope = 'col';
     th.textContent = c.label;
-    if (c.type === 'money') th.className = 'num';
+    if (c.type === 'money' || c.type === 'number') th.className = 'num';
     head.append(th);
   }
   const rows = document.getElementById('rows');
@@ -51,11 +52,17 @@ function draw(data) {
     for (const c of data.columns) {
       const td = document.createElement('td');
       td.textContent = formatValue(r[c.key], c.type);
-      if (c.type === 'money') td.className = 'num';
+      if (c.type === 'money' || c.type === 'number') td.className = 'num';
       tr.append(td);
     }
     rows.append(tr);
   }
+  const total = document.getElementById('total');
+  total.hidden = data.total === undefined || !data.rows.length;
+  if (!total.hidden) total.textContent = `${data.totalLabel || 'Total'}: ${PESO.format(data.total)}`;
+  const note = document.getElementById('note');
+  note.hidden = !data.note;
+  note.textContent = data.note || '';
   document.getElementById('footer').textContent = `${data.count} record${data.count === 1 ? '' : 's'} · read-only output`;
   output.hidden = false;
   const printable = data.rows.length > 0;
@@ -63,8 +70,26 @@ function draw(data) {
   document.getElementById('pdf-btn').hidden = !printable;
 }
 
+const rangeForm = document.getElementById('range-form');
+const RANGE_FIELDS = ['from', 'to', 'topn'];
+let generated = false; // a ranked report only runs after Generate Report
+
+function showRangeErrors(errors = {}) {
+  for (const f of RANGE_FIELDS) {
+    rangeForm.querySelector(`[data-for="${f}"]`).textContent = errors[f] || '';
+    rangeForm.elements[f].setAttribute('aria-invalid', errors[f] ? 'true' : 'false');
+  }
+}
+
 function drawFilters(data) {
   if (!data.filters) return;
+  if (data.filters.kind === 'range') {
+    rangeForm.hidden = false;
+    rangeForm.elements.from.value = data.filters.from || '';
+    rangeForm.elements.to.value = data.filters.to || '';
+    rangeForm.elements.topn.value = String(data.filters.topn ?? '');
+    return;
+  }
   filtersForm.hidden = false;
   const select = document.getElementById('empno');
   select.replaceChildren();
@@ -87,12 +112,24 @@ async function load() {
   const query = new URLSearchParams();
   const empno = document.getElementById('empno').value;
   if (empno) query.set('empno', empno);
+  if (generated) for (const f of RANGE_FIELDS) query.set(f, rangeForm.elements[f].value);
+  showRangeErrors();
   flash('', 'Loading...');
   try {
     const res = await fetch(`/api/reports/${slug}?${query}`);
     if (mine !== requestId) return;
     if (res.status === 401) { window.location.href = '/login.html'; return; }
     const json = await res.json().catch(() => ({}));
+    if (res.status === 400 && json.errors) { // bad filters: the entered values stay in the form
+      output.hidden = true;
+      document.getElementById('print-btn').hidden = true;
+      document.getElementById('pdf-btn').hidden = true;
+      showRangeErrors(json.errors);
+      flash('bad', 'Check the report filters. Fix the fields marked below and generate the report again.');
+      const first = RANGE_FIELDS.find((f) => json.errors[f]);
+      if (first) rangeForm.elements[first].focus();
+      return;
+    }
     if (!res.ok) {
       output.hidden = true;
       document.getElementById('print-btn').hidden = true;
@@ -110,6 +147,7 @@ async function load() {
 }
 
 document.getElementById('empno').addEventListener('change', load);
+rangeForm.addEventListener('submit', (e) => { e.preventDefault(); generated = true; load(); });
 filtersForm.addEventListener('submit', (e) => { e.preventDefault(); load(); });
 for (const id of ['print-btn', 'pdf-btn']) document.getElementById(id).addEventListener('click', () => window.print());
 document.getElementById('pdf-btn').addEventListener('click', () => { document.getElementById('pdf-hint').hidden = false; });

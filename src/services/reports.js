@@ -1,10 +1,11 @@
 'use strict';
 
 const { manilaToday, EMPNO_RE } = require('../validators/employee');
+const { parseRange } = require('../validators/report');
 
 // One entry per report. `right` is the report right that opens it. Adding a report = adding an entry here and its route line
 // comes with it (routes/reports.js loops over this list).
-// Part 1 (S4-DEV-04): the four list reports. Part 2 (S4-DEV-05) adds Top Customers, Top Products and Top Sales.
+// Part 1 (S4-DEV-04): the four list reports. Part 2 (S4-DEV-05): Top Customers, Top Products and Top Sales.
 const clean = (v) => String(v ?? '').trim();
 const personName = (r) => [clean(r.lastname), clean(r.firstname)].filter(Boolean).join(', ');
 const GENDERS = { M: 'Male', F: 'Female' };
@@ -15,6 +16,40 @@ const EMPLOYEE_COLUMNS = [
   { key: 'empno', label: 'Employee No.' }, { key: 'name', label: 'Name' }, { key: 'gender', label: 'Gender' },
   { key: 'hiredate', label: 'Hire date', type: 'date' }, { key: 'sepdate', label: 'Separation date', type: 'date' },
 ];
+
+const money = (v) => Math.round(Number(v) * 100) / 100;
+const startOfYear = (d) => `${d.slice(0, 4)}-01-01`;
+
+// The three ranked sales reports share one shape: From, To and Top N in; Rank + columns out; a total of the rows listed.
+// Nothing runs until the filters are sent ("Generate Report"); before that the screen gets the default filters only.
+function rankedReport({ db, repo, today }, { right, title, summary, columns, fetch, toRow }) {
+  return {
+    right, title, summary,
+    async run(_user, query) {
+      const asOf = today();
+      const defaults = { from: startOfYear(asOf), to: asOf, topn: 10 };
+      const base = { asOf, filters: { kind: 'range', ...defaults }, columns: [{ key: 'rank', label: 'Rank', type: 'number' }, ...columns] };
+      if (query.from === undefined && query.to === undefined && query.topn === undefined) {
+        return { ...base, rows: [], prompt: 'Choose the dates and how many rows to show, then generate the report.' };
+      }
+      const { errors, value } = parseRange(query);
+      if (Object.keys(errors).length) return { fail: { status: 400, body: { errors } } };
+      const [rows, unpriced] = await Promise.all([repo[fetch](db, value), repo.unpricedLines(db, value)]);
+      const out = rows.map((r, i) => ({ rank: i + 1, ...toRow(r) }));
+      const total = out.reduce((sum, r) => sum + Math.round(r.amount * 100), 0) / 100;
+      return {
+        ...base,
+        filters: { kind: 'range', ...value },
+        subject: `Period ${value.from} to ${value.to} · Top ${value.topn}`,
+        rows: out,
+        total,
+        totalLabel: 'Total of the rows listed',
+        note: unpriced ? `${unpriced} sale line${unpriced === 1 ? ' has' : 's have'} no price on the sale date and ${unpriced === 1 ? 'is' : 'are'} left out.` : undefined,
+        prompt: out.length ? undefined : 'No sales in this date range. Choose another date range and generate the report again.',
+      };
+    },
+  };
+}
 
 function createReports({ db, repo, perms, today = manilaToday }) {
   const DEFS = {
@@ -72,6 +107,22 @@ function createReports({ db, repo, perms, today = manilaToday }) {
     },
   };
 
+  DEFS['top-customers'] = rankedReport({ db, repo, today }, {
+    right: 'RPT_TOP_CUSTOMERS', title: 'Top Customers', summary: 'Customers ranked by the value of their sales in a date range.',
+    columns: [{ key: 'custno', label: 'Customer No.' }, { key: 'customer', label: 'Customer name' }, { key: 'amount', label: 'Sales total', type: 'money' }],
+    fetch: 'topCustomers', toRow: (r) => ({ custno: r.custno, customer: clean(r.custname) || '—', amount: money(r.amount) }),
+  });
+  DEFS['top-products'] = rankedReport({ db, repo, today }, {
+    right: 'RPT_TOP_PRODUCTS', title: 'Top Products', summary: 'Products ranked by sales amount in a date range.',
+    columns: [{ key: 'prodcode', label: 'Product code' }, { key: 'description', label: 'Description' }, { key: 'quantity', label: 'Quantity sold', type: 'number' }, { key: 'amount', label: 'Sales amount', type: 'money' }],
+    fetch: 'topProducts', toRow: (r) => ({ prodcode: r.prodcode, description: clean(r.description) || '—', quantity: Number(r.quantity), amount: money(r.amount) }),
+  });
+  DEFS['top-sales'] = rankedReport({ db, repo, today }, {
+    right: 'RPT_TOP_SALES', title: 'Top Sales', summary: 'The largest sales transactions in a date range.',
+    columns: [{ key: 'transno', label: 'Transaction No.' }, { key: 'salesdate', label: 'Sales date', type: 'date' }, { key: 'customer', label: 'Customer' }, { key: 'amount', label: 'Sales amount', type: 'money' }],
+    fetch: 'topSales', toRow: (r) => ({ transno: r.transno, salesdate: r.salesdate, customer: clean(r.custname) || r.custno || '—', amount: money(r.amount) }),
+  });
+
   const RIGHTS = Object.values(DEFS).map((d) => d.right);
 
   // The reports this person may open: shown on the Reports page. Rights are read on every call.
@@ -101,8 +152,8 @@ function createReports({ db, repo, perms, today = manilaToday }) {
   return { index, run, defs: DEFS, RIGHTS };
 }
 
-// The rights of the reports built so far; the reports screens open for anyone holding one of them.
-const REPORT_RIGHTS = ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY'];
-const REPORT_SLUGS = ['product-master', 'active-employees', 'all-employees', 'employee-job-history'];
+// The rights of all seven reports; the reports screens open for anyone holding one of them.
+const REPORT_RIGHTS = ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY', 'RPT_TOP_CUSTOMERS', 'RPT_TOP_PRODUCTS', 'RPT_TOP_SALES'];
+const REPORT_SLUGS = ['product-master', 'active-employees', 'all-employees', 'employee-job-history', 'top-customers', 'top-products', 'top-sales'];
 
 module.exports = { createReports, REPORT_RIGHTS, REPORT_SLUGS };
