@@ -96,11 +96,12 @@ const MODULES = [
     routes: [['POST', '/', 'SALE_EDIT']],
   },
   {
-    name: 'reports', file: '../src/routes/reports', all: ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY'],
+    name: 'reports', file: '../src/routes/reports', all: ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY', 'RPT_TOP_CUSTOMERS', 'RPT_TOP_PRODUCTS', 'RPT_TOP_SALES'],
     read: '/', // the Reports page lists only what the person may open; each report is a read that needs exactly its own right
     moreReads: [
       ['/product-master', ['RPT_PRODUCT_MASTER']], ['/active-employees', ['RPT_ACTIVE_EMPLOYEES']],
       ['/all-employees', ['RPT_ALL_EMPLOYEES']], ['/employee-job-history', ['RPT_EMP_JOB_HISTORY']],
+      ['/top-customers', ['RPT_TOP_CUSTOMERS']], ['/top-products', ['RPT_TOP_PRODUCTS']], ['/top-sales', ['RPT_TOP_SALES']],
     ],
     routes: [], // reports are read-only: there is no Add, Edit or Delete
   },

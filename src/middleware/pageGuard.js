@@ -22,8 +22,8 @@ const PAGE_RULES = {
   '/sales.html': { roles: null, rights: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW', 'SALEDET_ADD', 'SALEDET_EDIT', 'SALEDET_DELETE'] },
   '/sale.html': { roles: null, rights: ['SALEDET_VIEW'] },
   '/payments.html': { roles: null, rights: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'] },
-  '/reports.html': { roles: null, rights: ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY'] },
-  '/report.html': { roles: null, rights: ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY'] },
+  '/reports.html': { roles: null, rights: ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY', 'RPT_TOP_CUSTOMERS', 'RPT_TOP_PRODUCTS', 'RPT_TOP_SALES'] },
+  '/report.html': { roles: null, rights: ['RPT_PRODUCT_MASTER', 'RPT_ACTIVE_EMPLOYEES', 'RPT_ALL_EMPLOYEES', 'RPT_EMP_JOB_HISTORY', 'RPT_TOP_CUSTOMERS', 'RPT_TOP_PRODUCTS', 'RPT_TOP_SALES'] },
   '/products.html': { roles: null, rights: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'] },
 };
 

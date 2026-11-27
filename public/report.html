@@ -26,6 +26,12 @@
       <label for="empno">Employee</label>
       <select id="empno" name="empno"><option value="">Choose an employee...</option></select>
     </form>
+    <form class="report-filters no-print" id="range-form" hidden novalidate>
+      <div><label for="from">From date</label><input id="from" name="from" type="date" required /><div class="err" data-for="from"></div></div>
+      <div><label for="to">To date</label><input id="to" name="to" type="date" required /><div class="err" data-for="to"></div></div>
+      <div><label for="topn">Top N</label><input id="topn" name="topn" type="number" min="1" max="100" step="1" inputmode="numeric" required /><div class="err" data-for="topn"></div></div>
+      <button class="btn primary" type="submit" id="generate-btn">Generate Report</button>
+    </form>
     <div id="msg" role="status" aria-live="polite"></div>
     <section id="output" hidden>
       <p class="muted" id="subtitle"></p>
@@ -36,6 +42,8 @@
           <tbody id="rows"></tbody>
         </table>
       </div>
+      <p class="report-total" id="total" hidden></p>
+      <p class="muted" id="note" hidden></p>
       <p class="muted" id="footer"></p>
     </section>
   </main>
