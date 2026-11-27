@@ -120,3 +120,9 @@ dialog input[readonly] { background: var(--wash); color: var(--muted); }
 .products th.num, .products td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .products td:first-child { white-space: nowrap; font-weight: 600; }
 .current-price { font-weight: 600; margin: 0 0 .75rem; }
+
+/* Sales (S4-DEV-01) */
+.sales td { white-space: nowrap; }
+.sales td:nth-child(3), .sales td:nth-child(4) { white-space: normal; min-width: 10rem; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.sales .note { display: block; font-size: .72rem; color: var(--terracotta); }

@@ -14,6 +14,7 @@ const departmentRoutes = require('./routes/departments');
 const jobRoutes = require('./routes/jobs');
 const employeeRoutes = require('./routes/employees');
 const jobHistoryRoutes = require('./routes/jobHistory');
+const salesRoutes = require('./routes/sales');
 const rightsRepo = require('./repositories/rightsRepo');
 const { createPermissions } = require('./services/permissions');
 const { guardPages } = require('./middleware/pageGuard');
@@ -64,6 +65,7 @@ function createApp({ config, db, googleVerifier }) {
   app.use('/api/jobs', jobRoutes(db, perms));
   app.use('/api/employees', employeeRoutes(db, perms));
   app.use('/api/job-history', jobHistoryRoutes(db, perms));
+  app.use('/api/sales', salesRoutes(db, perms));
   // Later PRs mount here: /api/auth (DEV-02..04), /api/users (DEV-05..06), /api/rights (DEV-07)
 
   app.use(notFound);

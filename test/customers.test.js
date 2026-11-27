@@ -134,7 +134,7 @@ test('menu: the Customer tile now links to the customer page, for people who may
   const modules = [{ module_code: 'CUSTOMER', module_name: 'Customer Management' }, { module_code: 'PRODUCT', module_name: 'Product Management' }];
   const m = buildMenu(user(5, 'user'), modules, ['CUSTOMER']);
   assert.deepStrictEqual(m.modules.map((x) => [x.code, x.href]), [['CUSTOMER', '/customers.html']]);
-  assert.strictEqual(buildMenu(user(2, 'admin'), [{ module_code: 'SALES', module_name: 'Sales Management' }], []).modules[0].href, null); // Sales page comes in Sprint 4
+  assert.strictEqual(buildMenu(user(2, 'admin'), [{ module_code: 'SALES', module_name: 'Sales Management' }], []).modules[0].href, '/sales.html'); // Sales screen: S4-DEV-01
 });
 
 // ================= S2-DEV-02: add and edit =================
