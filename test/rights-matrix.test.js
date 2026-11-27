@@ -106,6 +106,12 @@ const MODULES = [
     routes: [], // reports are read-only: there is no Add, Edit or Delete
   },
   {
+    name: 'balances', file: '../src/routes/balances', all: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'],
+    // Read-only views that follow the Sales list rights (no payment right exists yet): any of the four opens both.
+    read: '/transactions/:transno', moreReads: [['/customers/:custno', null]],
+    routes: [],
+  },
+  {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
     routes: [
       ['POST', '/', 'PROD_ADD'], ['PUT', '/:code', 'PROD_EDIT'], ['DELETE', '/:code', 'PROD_DELETE'], ['POST', '/:code/restore', 'ADMIN'],

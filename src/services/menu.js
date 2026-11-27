@@ -29,7 +29,7 @@ const MODULE_SUBPAGES = {
 };
 
 // Screens reached from another screen (not from the tab bar). They keep the module tab highlighted.
-const MODULE_EXTRA_PAGES = { hr: ['/employee.html', '/job-history.html'], sales: ['/sale.html'], reports: ['/report.html'] };
+const MODULE_EXTRA_PAGES = { hr: ['/employee.html', '/job-history.html'], sales: ['/sale.html', '/balance.html', '/customer-balance.html'], reports: ['/report.html'] };
 
 const ADMIN_ITEMS = [{ key: 'users', label: 'User Management', href: '/users.html' }];
 

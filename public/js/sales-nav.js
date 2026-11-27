@@ -6,7 +6,7 @@
   const LIST = ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'];
   const PAGES = [
     { label: 'Sales', href: '/sales.html', also: ['/sale.html'], rights: [...LIST, 'SALEDET_ADD', 'SALEDET_EDIT', 'SALEDET_DELETE'] },
-    { label: 'Payments', href: '/payments.html', also: [], rights: LIST },
+    { label: 'Payments', href: '/payments.html', also: ['/balance.html', '/customer-balance.html'], rights: LIST },
   ];
   const nav = document.getElementById('sales-nav');
   if (!nav) return;

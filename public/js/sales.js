@@ -22,7 +22,7 @@ const form = document.getElementById('sale-form');
 
 function flash(kind, text) { msgEl.className = kind; msgEl.textContent = text; }
 function clearMsg() { msgEl.className = ''; msgEl.textContent = ''; }
-function showActions() { return can.details || can.edit; }
+function showActions() { return true; } // every list viewer can open a balance
 function cols() { return 5 + (can.seeDeleted ? 2 : 0) + (showActions() ? 1 : 0); }
 function filtered() { return Boolean(searchEl.value.trim()); }
 
@@ -100,6 +100,13 @@ function render(data) {
           a.dataset.transno = s.transno;
           box.append(a);
         }
+        const bal = document.createElement('a');
+        bal.className = 'btn';
+        bal.href = `/balance.html?transno=${encodeURIComponent(s.transno)}`;
+        bal.textContent = 'Balance';
+        bal.setAttribute('aria-label', `Balance of ${s.transno}`);
+        bal.dataset.act = 'balance';
+        box.append(bal);
         if (can.edit && !s.deleted) {
           const b = document.createElement('button');
           b.type = 'button';
