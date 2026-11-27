@@ -256,5 +256,5 @@ test('menu: Sales has two screens; the tile opens the first one the person may u
   const codes = (...c) => ({ all: false, codes: new Set(c) });
   assert.strictEqual(buildMenu(user(5, 'user'), mods, ['SALES'], codes('SALEDET_VIEW')).modules[0].href, '/sales.html');
   const m = buildMenu(user(5, 'user'), mods, ['SALES'], codes('SALE_EDIT')).modules[0];
-  assert.deepStrictEqual(m.pages, ['/sales.html', '/payments.html', '/sale.html']);
+  assert.deepStrictEqual(m.pages, ['/sales.html', '/payments.html', '/sale.html', '/balance.html', '/customer-balance.html']);
 });

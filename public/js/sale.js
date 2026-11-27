@@ -44,6 +44,7 @@ function render() {
   document.title = `${sale.transno} - Sale Details - Hope, Inc. ERP`;
   document.getElementById('title').textContent = `Sale Details · ${sale.transno}`;
   document.getElementById('summary').hidden = false;
+  document.getElementById('balance-link').href = `/balance.html?transno=${encodeURIComponent(sale.transno)}`;
   document.getElementById('s-transno').textContent = sale.transno;
   document.getElementById('s-date').textContent = sale.salesdate || '—';
   document.getElementById('s-customer').textContent = sale.customer ? `${sale.custno} · ${sale.customer}` : sale.custno || '—';

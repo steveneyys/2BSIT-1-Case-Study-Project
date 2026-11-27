@@ -60,7 +60,14 @@ function render(data) {
     rowsEl.replaceChildren();
     for (const p of data.payments) {
       const tr = document.createElement('tr');
-      tr.append(cell(p.orno), cell(p.paydate || '—'), cell(p.transno ? (p.customer ? `${p.transno} · ${p.customer}` : p.transno) : '—'), cell(p.amount == null ? '—' : PESO.format(p.amount), 'num'));
+      const saleTd = document.createElement('td');
+      if (p.transno) { // the linked sale opens its balance
+        const a = document.createElement('a');
+        a.href = `/balance.html?transno=${encodeURIComponent(p.transno)}`;
+        a.textContent = p.customer ? `${p.transno} · ${p.customer}` : p.transno;
+        saleTd.append(a);
+      } else saleTd.textContent = '—';
+      tr.append(cell(p.orno), cell(p.paydate || '—'), saleTd, cell(p.amount == null ? '—' : PESO.format(p.amount), 'num'));
       if (can.seeDeleted) {
         const statusTd = document.createElement('td');
         const sb = document.createElement('span');
