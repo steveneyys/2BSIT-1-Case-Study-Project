@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sale Details - Hope, Inc. ERP</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <header class="app-top">
+    <a class="brand" href="/home.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>hope.</a>
+    <div id="who" class="who"></div>
+    <button id="logout" class="link-btn" type="button">Sign out &#8599;</button>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Main menu"></nav>
+  <main class="page">
+    <p><a href="/sales.html">&larr; Back to Sales</a></p>
+    <h1 id="title">Sale Details</h1>
+    <dl class="profile-grid" id="summary" hidden>
+      <div><dt>Transaction</dt><dd id="s-transno"></dd></div>
+      <div><dt>Sales date</dt><dd id="s-date"></dd></div>
+      <div><dt>Customer</dt><dd id="s-customer"></dd></div>
+      <div><dt>Salesperson</dt><dd id="s-employee"></dd></div>
+      <div><dt>Status</dt><dd id="s-status"></dd></div>
+    </dl>
+    <div class="toolbar">
+      <button class="btn primary" type="button" id="add-btn" hidden>+ Add Sale Detail</button>
+    </div>
+    <div class="status-tabs" id="status-tabs" role="group" aria-label="Filter by status" hidden></div>
+    <div id="msg" role="status" aria-live="polite"></div>
+    <div class="table-wrap lines">
+      <table>
+        <caption class="visually-hidden">Sale details</caption>
+        <thead>
+          <tr>
+            <th scope="col">Product</th>
+            <th scope="col" class="num">Quantity</th>
+            <th scope="col" class="num">Unit price</th>
+            <th scope="col" class="num">Line amount</th>
+            <th scope="col" id="status-th" hidden>Status</th>
+            <th scope="col" id="stamp-th" hidden>Stamp</th>
+            <th scope="col" id="actions-th" hidden>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="4" class="muted">Loading...</td></tr></tbody>
+        <tfoot><tr><th scope="row" colspan="3" class="num">Total</th><td class="num" id="total"></td></tr></tfoot>
+      </table>
+    </div>
+    <p class="hint">Unit prices are the prices in force on the sales date. The total counts active lines only.</p>
+  </main>
+  <dialog id="line-dialog" aria-labelledby="line-title">
+    <form id="line-form" method="dialog" novalidate>
+      <div class="head"><h2 id="line-title">Add Sale Detail</h2><button type="button" class="close" id="line-close" aria-label="Close">&times;</button></div>
+      <hr />
+      <label for="transno">Transaction number</label>
+      <input id="transno" name="transno" readonly />
+      <label for="prodcode">Product <span class="req">(required)</span></label>
+      <select id="prodcode" name="prodcode" required><option value="">Choose...</option></select>
+      <div class="err" data-for="prodcode"></div>
+      <label for="quantity">Quantity <span class="req">(required)</span></label>
+      <input id="quantity" name="quantity" type="number" min="1" step="1" inputmode="numeric" required aria-describedby="quantity-hint" />
+      <div class="hint" id="quantity-hint">A whole number, 1 or more.</div>
+      <div class="err" data-for="quantity"></div>
+      <label for="unitprice">Unit price <span class="muted">(as of the sales date)</span></label>
+      <input id="unitprice" name="unitprice" readonly />
+      <label for="amount">Line amount</label>
+      <input id="amount" name="amount" readonly />
+      <div class="err" id="form-error" role="alert"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="cancel-btn">Cancel</button>
+        <button class="btn primary" type="submit" id="save-btn">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog" id="confirm-form">
+      <div class="head"><h2 id="confirm-title">Delete sale detail?</h2></div>
+      <p id="confirm-text" class="muted"></p>
+      <div class="err" id="confirm-error" role="alert"></div>
+      <div class="buttons">
+        <button class="btn" type="button" id="confirm-cancel">Cancel</button>
+        <button class="btn danger" type="submit" id="confirm-ok">Delete</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="/js/shell.js"></script>
+  <script src="/js/sale.js"></script>
+</body>
+</html>
