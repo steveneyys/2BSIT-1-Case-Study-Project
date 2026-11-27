@@ -19,6 +19,7 @@ const PAGE_RULES = {
   '/employee.html': { roles: null, rights: ['EMP_ADD', 'EMP_EDIT', 'EMP_DELETE', 'JOBHIST_VIEW'] },
   '/job-history.html': { roles: null, rights: ['JOBHIST_VIEW'] },
   '/jobs.html': { roles: null, rights: ['JOB_ADD', 'JOB_EDIT', 'JOB_DELETE'] },
+  '/sales.html': { roles: null, rights: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW', 'SALEDET_ADD', 'SALEDET_EDIT', 'SALEDET_DELETE'] },
   '/products.html': { roles: null, rights: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'] },
 };
 

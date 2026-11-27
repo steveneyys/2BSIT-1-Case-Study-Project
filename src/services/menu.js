@@ -9,6 +9,7 @@ const { isAdminRole } = require('./permissions');
 const MODULE_PAGES = {
   customer: '/customers.html',
   product: '/products.html',
+  sales: '/sales.html',
   hr: '/departments.html', // default; see MODULE_SUBPAGES for the pages inside Human Resources
 };
 

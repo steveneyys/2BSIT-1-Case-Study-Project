@@ -80,6 +80,12 @@ const MODULES = [
     ],
   },
   {
+    name: 'sales', file: '../src/routes/sales',
+    all: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW', 'SALEDET_ADD', 'SALEDET_EDIT', 'SALEDET_DELETE'],
+    read: '/', readers: ['SALE_ADD', 'SALE_EDIT', 'SALE_DELETE', 'SALEDET_VIEW'], // the list needs a header right or View Sale Details; the router gate is any sales right
+    routes: [['POST', '/', 'SALE_ADD'], ['PUT', '/:transno', 'SALE_EDIT']],
+  },
+  {
     name: 'products', file: '../src/routes/products', all: ['PROD_ADD', 'PROD_EDIT', 'PROD_DELETE', 'PRICE_ADD', 'PRICE_EDIT', 'PRICE_DELETE'],
     routes: [
       ['POST', '/', 'PROD_ADD'], ['PUT', '/:code', 'PROD_EDIT'], ['DELETE', '/:code', 'PROD_DELETE'], ['POST', '/:code/restore', 'ADMIN'],
