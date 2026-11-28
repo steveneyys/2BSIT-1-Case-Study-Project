@@ -1,0 +1,31 @@
+id,role,planned_day,planned_date,merged_day,merged_date,days_late,pr
+S4-DEV-01,Developer,2,12-02,before D1,11-27,-2,#120 (with a merge of origin)
+S4-DEV-02,Developer,3,12-03,before D1,11-27,-3,#121
+S4-DEV-03,Developer,4,12-04,before D1,11-27,-4,#122
+S4-DEV-04,Developer,5,12-07,before D1,11-27,-5,#123
+S4-DEV-05,Developer,6,12-08,before D1,11-27,-6,#124
+S4-DEV-06,Developer,7,12-09,before D1,11-27,-7,#125 (with DEV-07 first try and its revert)
+S4-DEV-07,Developer,8,12-10,before D1,11-27,-8,"#125 first try, reverted; #126"
+S4-DEV-08,Developer,9,12-11,before D1,11-27,-9,#127
+S4-DBA-01,DB Admin,2,12-02,,,,not yet
+S4-DBA-02,DB Admin,4,12-04,,,,not yet
+S4-DBA-03,DB Admin,5,12-07,,,,not yet
+S4-DBA-04,DB Admin,6,12-08,,,,not yet
+S4-DBA-05,DB Admin,7,12-09,,,,not yet
+S4-DBA-06,DB Admin,9,12-11,,,,not yet
+S4-TST-01,Tester,3,12-03,,,,not yet
+S4-TST-02,Tester,5,12-07,,,,not yet
+S4-TST-03,Tester,7,12-09,,,,not yet
+S4-TST-04,Tester,8,12-10,,,,not yet
+S4-TST-05,Tester,9,12-11,,,,not yet
+S4-TST-06,Tester,9,12-11,,,,not yet
+S4-UIX-01,UI/UX Designer,2,12-02,before D1,11-23,-2,not on a numbered PR (committed 16:35 to 16:36)
+S4-UIX-02,UI/UX Designer,3,12-03,before D1,11-24,-3,UI/UX-design branch
+S4-UIX-03,UI/UX Designer,4,12-04,before D1,11-24,-4,UI/UX-design branch
+S4-UIX-04,UI/UX Designer,5,12-07,before D1,11-24,-5,UI/UX-design branch
+S4-UIX-05,UI/UX Designer,9,12-11,before D1,11-24,-9,UI/UX-design branch (review plan only)
+S4-SM-01,Scrum Master,1,12-01,,,,this batch
+S4-SM-02,Scrum Master,5,12-07,,,,this batch
+S4-SM-03,Scrum Master,8,12-10,,,,this batch
+S4-SM-04,Scrum Master,9,12-11,,,,this batch
+S4-SM-05,Scrum Master,10,12-14,,,,this batch
